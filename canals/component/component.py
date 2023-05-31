@@ -13,7 +13,7 @@ from canals.component.decorators import save_init_params, init_defaults
 logger = logging.getLogger(__name__)
 
 
-def component(class_):
+def component(clazz):
     """
     Marks a class as a component. Any class decorated with `@component` can be used by a Pipeline.
 
@@ -171,7 +171,7 @@ def component(class_):
     `run()` must return a single instance of the dataclass declared through either `Output` or `self.output_type()`.
 
     Args:
-        class_: the class that Canals should use as a component.
+        clazz: the class that Canals should use as a component.
         serializable: whether to check, at init time, if the component can be saved with
         `save_pipelines()`.
 
@@ -181,74 +181,74 @@ def component(class_):
     Raises:
         ComponentError: if the class provided has no `run()` method or otherwise doesn't respect the component contract.
     """
-    logger.debug("Registering %s as a component", class_)
+    logger.debug("Registering %s as a component", clazz)
 
     # '__canals_component__' is used to distinguish components from regular classes.
     # Its value is set to the desired component name: normally it is the class name, but it can technically be customized.
-    class_.__canals_component__ = class_.__name__
+    clazz.__canals_component__ = clazz.__name__
 
     # Check that inputs respects all constraints
-    _check_input(class_)
+    _check_input(clazz)
 
     # Check that outputs respects all constraints
-    _check_output(class_)
+    _check_output(clazz)
 
     # Check that the run method respects all constraints
-    _check_run_signature(class_)
+    _check_run_signature(clazz)
 
     # Automatically registers all the init parameters in an instance attribute called `init_parameters`.
     # See `save_init_params()`.
-    class_.__init__ = save_init_params(class_.__init__)
+    clazz.__init__ = save_init_params(clazz.__init__)
 
     # Makes sure the self.defaults dictionary is always present
-    class_.__init__ = init_defaults(class_.__init__)
+    clazz.__init__ = init_defaults(clazz.__init__)
 
-    return class_
+    return clazz
 
 
-def _check_input(class_):
+def _check_input(clazz):
     """
     Check that the component's input respects all constraints
     """
-    if not hasattr(class_, "Input") and not hasattr(class_, "input_type"):
+    if not hasattr(clazz, "Input") and not hasattr(clazz, "input_type"):
         raise ComponentError(
             "Components must either have an Input dataclass or a 'input_type' property that returns such dataclass"
         )
-    if hasattr(class_, "Input"):
-        if not is_dataclass(class_.Input):
-            raise ComponentError(f"{class_.__name__}.Input must be a dataclass")
-        if not hasattr(class_.Input, "_component_input"):
-            raise ComponentError(f"{class_.__name__}.Input must inherit from ComponentInput")
+    if hasattr(clazz, "Input"):
+        if not is_dataclass(clazz.Input):
+            raise ComponentError(f"{clazz.__name__}.Input must be a dataclass")
+        if not hasattr(clazz.Input, "_component_input"):
+            raise ComponentError(f"{clazz.__name__}.Input must inherit from ComponentInput")
         if (
-            hasattr(class_.Input, "_variadic_component_input")
-            and len(inspect.signature(class_.Input.__init__).parameters) != 2
+            hasattr(clazz.Input, "_variadic_component_input")
+            and len(inspect.signature(clazz.Input.__init__).parameters) != 2
         ):
             raise ComponentError("Variadic inputs can contain only one variadic positional parameter.")
 
 
-def _check_output(class_):
+def _check_output(clazz):
     """
     Check that the component's output respects all constraints
     """
-    if not hasattr(class_, "Output") and not hasattr(class_, "output_type"):
+    if not hasattr(clazz, "Output") and not hasattr(clazz, "output_type"):
         raise ComponentError(
             "Components must either have an Output dataclass or a 'output_type' property that returns such dataclass"
         )
-    if hasattr(class_, "Output"):
-        if not is_dataclass(class_.Output):
-            raise ComponentError(f"{class_.__name__}.Output must be a dataclass")
-        if not hasattr(class_.Output, "_component_output"):
-            raise ComponentError(f"{class_.__name__}.Output must inherit from ComponentOutput")
+    if hasattr(clazz, "Output"):
+        if not is_dataclass(clazz.Output):
+            raise ComponentError(f"{clazz.__name__}.Output must be a dataclass")
+        if not hasattr(clazz.Output, "_component_output"):
+            raise ComponentError(f"{clazz.__name__}.Output must inherit from ComponentOutput")
 
 
-def _check_run_signature(class_):
+def _check_run_signature(clazz):
     """
     Check that the component's run() method exists and respects all constraints
     """
     # Check for run()
-    if not hasattr(class_, "run"):
-        raise ComponentError(f"{class_.__name__} must have a 'run()' method. See the docs for more information.")
-    run_signature = inspect.signature(class_.run)
+    if not hasattr(clazz, "run"):
+        raise ComponentError(f"{clazz.__name__} must have a 'run()' method. See the docs for more information.")
+    run_signature = inspect.signature(clazz.run)
 
     # run() must take a single input param
     if len(run_signature.parameters) != 2:
@@ -259,9 +259,9 @@ def _check_run_signature(class_):
         raise ComponentError("run() must accept a parameter called 'data'.")
 
     # Either give a self.input_type function or type 'data' with the Input dataclass
-    if not hasattr(class_, "input_type") and run_signature.parameters["data"].annotation != class_.Input:
-        raise ComponentError(f"'data' must be typed and the type must be {class_.__name__}.Input.")
+    if not hasattr(clazz, "input_type") and run_signature.parameters["data"].annotation != clazz.Input:
+        raise ComponentError(f"'data' must be typed and the type must be {clazz.__name__}.Input.")
 
     # Check for the return types
-    if not hasattr(class_, "output_type") and run_signature.return_annotation == inspect.Parameter.empty:
-        raise ComponentError(f"{class_.__name__}.run() must declare the type of its return value.")
+    if not hasattr(clazz, "output_type") and run_signature.return_annotation == inspect.Parameter.empty:
+        raise ComponentError(f"{clazz.__name__}.run() must declare the type of its return value.")
