@@ -36,13 +36,13 @@ def test_pipeline(tmp_path):
 
     pipeline.draw(tmp_path / "variable_decision_and_merge_pipeline.png")
 
-    results = pipeline.run({"add_one": add_one.input(value=1)})
+    results = pipeline.run({"add_one": add_one.In(value=1)})
     pprint(results)
-    assert results == {"sum": summer.output(total=14)}
+    assert results == {"sum": summer.Output(total=14)}
 
-    results = pipeline.run({"add_one": add_one.input(value=2)})
+    results = pipeline.run({"add_one": add_one.In(value=2)})
     pprint(results)
-    assert results == {"sum": summer.output(total=17)}
+    assert results == {"sum": summer.Output(total=17)}
 
 
 if __name__ == "__main__":

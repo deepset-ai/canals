@@ -14,7 +14,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 def test_pipeline(tmp_path):
     pipeline = Pipeline()
-    pipeline.add_component("first_addition", AddFixedValue(add=2))
+    first_add = AddFixedValue(add=2)
+    pipeline.add_component("first_addition", first_add)
     pipeline.add_component("second_addition", AddFixedValue())
     pipeline.add_component("double", Double())
     pipeline.connect("first_addition", "double")
@@ -22,10 +23,10 @@ def test_pipeline(tmp_path):
 
     pipeline.draw(tmp_path / "linear_pipeline.png")
 
-    results = pipeline.run({"first_addition": AddFixedValue().input(value=1)})
+    results = pipeline.run({"first_addition": first_add.In(value=1)})
     pprint(results)
 
-    assert results == {"second_addition": AddFixedValue().output(value=7)}
+    assert results == {"second_addition": AddFixedValue().Out(value=7)}
 
 
 if __name__ == "__main__":

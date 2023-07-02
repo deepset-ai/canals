@@ -17,32 +17,27 @@ class Remainder:
     the second output connection.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
+    @component.input
+    class Input:
+        value: int
 
-        return Input
+    @component.output
+    class Output:
+        pass
 
     def __init__(self, divisor: int = 2):
         if divisor == 0:
             raise ValueError("Can't divide by zero")
         self.divisor = divisor
 
-        self._output_type = make_dataclass(
-            "Output", fields=[(f"remainder_is_{val}", int, None) for val in range(divisor)]
-        )
-
-    @component.output  # type: ignore
-    def output(self):
-        return self._output_type
+        self.Output = make_dataclass("Output", fields=[(f"remainder_is_{val}", int, None) for val in range(divisor)])
 
     def run(self, data):
         """
         :param value: the value to check the remainder of.
         """
         remainder = data.value % self.divisor
-        output = self.output()
+        output = self.Output()
         setattr(output, f"remainder_is_{remainder}", data.value)
         return output
 
@@ -56,13 +51,13 @@ class TestRemainder(BaseTestComponent):
 
     def test_remainder_default(self):
         component = Remainder()
-        results = component.run(component.input(value=3))
-        assert results == component.output(remainder_is_1=3)
+        results = component.run(component.Input(value=3))
+        assert results == component.Output(remainder_is_1=3)
 
     def test_remainder_with_divisor(self):
         component = Remainder(divisor=4)
-        results = component.run(component.input(value=3))
-        assert results == component.output(remainder_is_3=3)
+        results = component.run(component.Input(value=3))
+        assert results == component.Output(remainder_is_3=3)
 
     def test_remainder_zero(self):
         with pytest.raises(ValueError):

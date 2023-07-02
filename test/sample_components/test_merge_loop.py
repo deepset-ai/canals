@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import builtins
 from typing import List, Union, Optional
-from dataclasses import make_dataclass, is_dataclass, asdict
+from dataclasses import make_dataclass, is_dataclass, asdict, field
 
 from canals.component import component
 from canals.testing import BaseTestComponent
@@ -15,6 +15,14 @@ class MergeLoop:
     Takes multiple inputs and returns the first one that is not None.
     """
 
+    @component.input
+    class In:
+        pass
+
+    @component.output
+    class Out:
+        pass
+
     def __init__(self, expected_type: Union[type, str], inputs: List[str] = ["value_1", "value_2"]):
         if isinstance(expected_type, str):
             self.expected_type = getattr(builtins, expected_type)
@@ -23,18 +31,14 @@ class MergeLoop:
         self.init_parameters = {"expected_type": self.expected_type.__name__}
         # mypy complains that we can't Optional is not a type, so we ignore the error
         # cause we consider this to be correct
-        self._input = make_dataclass("Input", fields=[(f, Optional[self.expected_type]) for f in inputs])  # type: ignore
+        self.In = make_dataclass("In", fields=[(f, Optional[self.expected_type]) for f in inputs])  # type: ignore
+        self.Out = make_dataclass("Out", fields=[("value", self.expected_type)])
 
-    @component.input  # type: ignore
-    def input(self):
-        return self._input
+        # With some additional magic we could also do this, I'm unsure if the field type is kept though
+        # for f in inputs:
+        #     self.In[f]: Optional[self.expected_type] = field(None)
 
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            value: self.expected_type  # type: ignore
-
-        return Output
+        # self.Out.value: self.expected_type = field()
 
     def run(self, data):
         """
@@ -45,8 +49,8 @@ class MergeLoop:
             values = asdict(data).values()
         for v in values:
             if v is not None:
-                return self.output(value=v)
-        return self.output(value=None)
+                return self.Out(value=v)
+        return self.Out(value=None)
 
 
 class TestMergeLoop(BaseTestComponent):
@@ -63,25 +67,25 @@ class TestMergeLoop(BaseTestComponent):
 
     def test_merge_first(self):
         component = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
-        results = component.run(component.input(5, None))
-        assert results == component.output(value=5)
+        results = component.run(component.In(5, None))
+        assert results == component.Out(value=5)
 
     def test_merge_second(self):
         component = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
-        results = component.run(component.input(None, 5))
-        assert results == component.output(value=5)
+        results = component.run(component.In(None, 5))
+        assert results == component.Out(value=5)
 
     def test_merge_nones(self):
         component = MergeLoop(expected_type=int, inputs=["in_1", "in_2", "in_3"])
-        results = component.run(component.input(None, None, None))
-        assert results == component.output(value=None)
+        results = component.run(component.In(None, None, None))
+        assert results == component.Out(value=None)
 
     def test_merge_one(self):
         component = MergeLoop(expected_type=int)
-        results = component.run(component.input(1))
-        assert results == component.output(value=1)
+        results = component.run(component.In(1))
+        assert results == component.Out(value=1)
 
     def test_merge_one_none(self):
         component = MergeLoop(expected_type=int)
-        results = component.run(component.input())
-        assert results == component.output(value=None)
+        results = component.run(component.In())
+        assert results == component.Out(value=None)

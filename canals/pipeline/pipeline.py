@@ -676,8 +676,10 @@ class Pipeline:
             optionals = {field: None for field in instance.__canals_optional_inputs__}
 
             # Pass the inputs as kwargs after adding the component's own defaults to them
-            inputs = {**optionals, **instance.defaults, **inputs}
-            input_dataclass = instance.input(**inputs)
+            # inputs = {**optionals, **instance.defaults, **inputs}
+            # input_dataclass = instance.input(**inputs)
+
+            input_dataclass = instance.__canals_input__(**{**optionals, **inputs})
 
             output_dataclass = instance.run(input_dataclass)
 

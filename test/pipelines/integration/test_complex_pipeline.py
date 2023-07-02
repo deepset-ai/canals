@@ -84,7 +84,7 @@ def test_complex_pipeline(tmp_path):
 
     pipeline.draw(tmp_path / "complex_pipeline.png")
 
-    results = pipeline.run({"greet_first": Greet().input(value=1), "greet_enumerator": Greet().input(value=1)})
+    results = pipeline.run({"greet_first": Greet().Input(value=1), "greet_enumerator": Greet().Input(value=1)})
     pprint(results)
     print("accumulated: ", accumulate.state)
 

@@ -32,11 +32,11 @@ def test_pipeline(tmp_path):
 
     pipeline.draw(tmp_path / "looping_pipeline.png")
 
-    results = pipeline.run({"add_one": AddFixedValue().input(value=3)})
+    results = pipeline.run({"add_one": AddFixedValue().In(value=3)})
     pprint(results)
     print("accumulator: ", accumulator.state)
 
-    assert results == {"add_two": AddFixedValue().output(value=18)}
+    assert results == {"add_two": AddFixedValue().Out(value=18)}
     assert accumulator.state == 16
 
 

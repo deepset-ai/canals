@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import List
 
-from dataclasses import make_dataclass
+from dataclasses import make_dataclass, fields
 
 
 from canals.testing import BaseTestComponent
@@ -16,25 +16,21 @@ class Repeat:
     Repeats the input value on all outputs.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
+    @component.input
+    class Input:
+        value: int
 
-        return Input
+    @component.output
+    class Output:
+        pass
 
     def __init__(self, outputs: List[str] = ["output_1", "output_2", "output_3"]):
-        self.outputs = outputs
-        self._output_type = make_dataclass("Output", fields=[(val, int, None) for val in outputs])
-
-    @component.output  # type: ignore
-    def output(self):
-        return self._output_type
+        self.Output = make_dataclass("Output", fields=[(val, int, None) for val in outputs])
 
     def run(self, data):
-        output_dataclass = self.output()
-        for output in self.outputs:
-            setattr(output_dataclass, output, data.value)
+        output_dataclass = self.Output()
+        for f in fields(self.Output):
+            setattr(output_dataclass, f.name, data.value)
         return output_dataclass
 
 
@@ -47,12 +43,12 @@ class TestRepeat(BaseTestComponent):
 
     def test_repeat_default(self):
         component = Repeat()
-        results = component.run(component.input(value=10))
-        assert results == component.output(output_1=10, output_2=10, output_3=10)
+        results = component.run(component.Input(value=10))
+        assert results == component.Output(output_1=10, output_2=10, output_3=10)
         assert component.init_parameters == {}
 
     def test_repeat_init(self):
         component = Repeat(outputs=["one", "two"])
-        results = component.run(component.input(value=10))
-        assert results == component.output(one=10, two=10)
+        results = component.run(component.Input(value=10))
+        assert results == component.Output(one=10, two=10)
         assert component.init_parameters == {"outputs": ["one", "two"]}

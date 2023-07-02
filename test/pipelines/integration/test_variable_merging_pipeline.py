@@ -33,13 +33,13 @@ def test_pipeline(tmp_path):
 
     results = pipeline.run(
         {
-            "first_addition": AddFixedValue().input(value=1),
-            "third_addition": AddFixedValue().input(value=1),
+            "first_addition": AddFixedValue().In(value=1),
+            "third_addition": AddFixedValue().In(value=1),
         }
     )
     pprint(results)
 
-    assert results == {"fourth_addition": AddFixedValue().output(value=12)}
+    assert results == {"fourth_addition": AddFixedValue().Out(value=12)}
 
 
 if __name__ == "__main__":

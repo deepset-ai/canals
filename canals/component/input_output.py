@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 from enum import Enum
-from dataclasses import fields, is_dataclass, dataclass, asdict, MISSING
+from dataclasses import field, fields, is_dataclass, dataclass, asdict, MISSING
 
 logger = logging.getLogger(__name__)
 
@@ -61,77 +61,115 @@ def _make_comparable(class_: type):
     setattr(class_, "__eq__", comparator)
 
 
+# class MetaIO(type):
+#     # def __new__(cls, name, bases, dct):
+#     #     x = super().__new__(cls, name, bases, dct)
+#     #     x.__setattr__ = 100
+#     #     return x
+
+#     def __setattr__(self, name, value):
+#         print(f"{self=}, {name=}, {value=},")
+#         if not hasattr(self, "self.__dataclass_fields__"):
+#             return
+#         if name in self.__dataclass_fields__:
+#             self.__dataclass_fields__[name].default = value
+#         else:
+#             self.__dataclass_fields__[name] = field(default=value)
+#             self.__dataclass_fields__[name].type = type(value)
+
+
+# def _make_magic(class_: type):
+#     # def getter(self, instance, owner=None):
+
+#     def setter(self, name, value):
+#         print(f"{self=}, {name=}, {value=}")
+#         if not isinstance(self, type):
+#             return super().__set__(self, name, value)
+
+#         if name in self.__dataclass_fields__:
+#             self.__dataclass_fields__[name].default = value
+#         else:
+#             self.__dataclass_fields__[name] = field(default=value)
+#             self.__dataclass_fields__[name].type = type(value)
+
+#     class_.__set__ = setter
+
+
 class Connection(Enum):
     INPUT = 1
     OUTPUT = 2
 
 
-def _input(input_function=None):
+def _input(class_=None):
     """
     Decorator to mark a method that returns a dataclass defining a Component's input.
 
     The decorated function becomes a property.
     """
 
-    def decorator(function):
-        def wrapper(self):
-            class_ = function(self)
-            # If the user didn't explicitly declare the returned class
-            # as dataclass we do it out of convenience
-            if not is_dataclass(class_):
-                class_ = dataclass(class_)
+    def decorator(input_class):
+        # If the user didn't explicitly declare the returned class
+        # as dataclass we do it out of convenience
+        if not is_dataclass(input_class):
+            input_class = dataclass(input_class)
 
-            _make_comparable(class_)
-            _make_fields_optional(class_)
+        _make_comparable(input_class)
+        _make_fields_optional(input_class)
 
-            return class_
+        def caller(self, *args, **kwargs):
+            instance = self.__class__(*args, **kwargs)
+            for f in fields(self):
+                # Note: THIS IS WRONG, MUST NOT WORK LIKE THIS
+                # I've done it like this just to have a quick
+                # way of setting defaults in the new input instance.
+                # If a certain field has been explicitly set as None
+                # this will overwrite it with the default value if found.
+                # TODO: Think about if this is the actual behaviour that we
+                # want. I would very much prefer to find a reliable way to
+                # set defaults only if they've not been passed to __call__.
+                if not getattr(instance, f.name):
+                    setattr(instance, f.name, getattr(self, f.name))
+
+            return instance
+
+        input_class.__call__ = caller
 
         # Magic field to ease some further checks, we set it in the wrapper
         # function so we access it like this <class>.<function>.fget.__canals_connection__
-        wrapper.__canals_connection__ = Connection.INPUT
+        input_class.__canals_connection__ = Connection.INPUT
 
-        # If we don't set the documentation explicitly the user wouldn't be able to access
-        # since we make wrapper a property and not the original function.
-        # This is not essential but a really nice to have.
-        return property(fget=wrapper, doc=function.__doc__)
+        return input_class
 
     # Check if we're called as @_input or @_input()
-    if input_function:
+    if class_:
         # Called with parens
-        return decorator(input_function)
+        return decorator(class_)
 
     # Called without parens
     return decorator
 
 
-def _output(output_function=None):
+def _output(class_=None):
     """
     Decorator to mark a method that returns a dataclass defining a Component's output.
 
     The decorated function becomes a property.
     """
 
-    def decorator(function):
-        def wrapper(self):
-            class_ = function(self)
-            if not is_dataclass(class_):
-                class_ = dataclass(class_)
-            _make_comparable(class_)
-            return class_
+    def decorator(output_class):
+        if not is_dataclass(output_class):
+            output_class = dataclass(output_class)
 
-        # Magic field to ease some further checks, we set it in the wrapper
-        # function so we access it like this <class>.<function>.fget.__canals_connection__
-        wrapper.__canals_connection__ = Connection.OUTPUT
+        _make_comparable(output_class)
+        # _make_magic(output_class)
 
-        # If we don't set the documentation explicitly the user wouldn't be able to access
-        # since we make wrapper a property and not the original function.
-        # This is not essential but a really nice to have.
-        return property(fget=wrapper, doc=function.__doc__)
+        output_class.__canals_connection__ = Connection.OUTPUT
+        return output_class
 
     # Check if we're called as @_output or @_output()
-    if output_function:
+    if class_:
         # Called with parens
-        return decorator(output_function)
+        return decorator(class_)
 
     # Called without parens
     return decorator

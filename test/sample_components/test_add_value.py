@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Optional
 
-
 from canals.component import component
 from canals.testing.test_component import BaseTestComponent
 
@@ -14,27 +13,21 @@ class AddFixedValue:
     Adds the value of `add` to `value`. If not given, `add` defaults to 1.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-            add: int
+    @component.input
+    class In:
+        value: int
+        add: int
 
-        return Input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            value: int
-
-        return Output
+    @component.output
+    class Out:
+        value: int
 
     def __init__(self, add: Optional[int] = 1):
         if add:
-            self.defaults = {"add": add}
+            self.In.add = add
 
     def run(self, data):
-        return self.output(value=data.value + data.add)
+        return self.Out(value=data.value + data.add)
 
 
 class TestAddFixedValue(BaseTestComponent):
@@ -46,6 +39,6 @@ class TestAddFixedValue(BaseTestComponent):
 
     def test_addvalue(self):
         component = AddFixedValue()
-        results = component.run(component.input(value=50, add=10))
-        assert results == component.output(value=60)
+        results = component.run(component.In(value=50, add=10))
+        assert results == component.Out(value=60)
         assert component.init_parameters == {}

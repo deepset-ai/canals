@@ -4,7 +4,7 @@
 import logging
 import inspect
 from typing import Protocol, Union, List, Any, get_origin, get_args
-from dataclasses import fields, Field
+from dataclasses import fields, Field, MISSING
 from functools import wraps
 
 from canals.errors import ComponentError
@@ -247,8 +247,54 @@ class _Component:
 
         # Save the input and output properties so it's easier to find them when running the Component since we won't
         # need to search the exact property name each time
-        class_.__canals_input__ = input_
+        # TODO: This are not properties anymore but classes.
+        # We need to change this up a bit so that we can get fields from dinamically created
+        # I/O classes.
+        # Or maybe it's already working, I have no idea.
+        # class_.__canals_input__ = input_
         class_.__canals_output__ = output
+
+        class_.__canals_input_instance__ = None
+
+        def getthat(self):
+            # Each instance of this component has a different
+            # instance of input, this makes it possible to set
+            # defaults and create
+            if self.__canals_input_instance__:
+                return self.__canals_input_instance__
+            self.__canals_input_instance__ = input_()
+            return self.__canals_input_instance__
+
+        def setthat(self, data):
+            if not data:
+                # TODO: Raise maybe?
+                return
+
+            self.__canals_input_instance__ = component.input(data)()
+
+        # We're overwriting the input class with a property.
+        # Nice thing is that since we're making it a property
+        # we also force users to create input data using a component
+        # instance and not the class.
+        setattr(class_, input_.__name__, property(fget=getthat, fset=setthat))
+        class_.__canals_input__ = property(getthat)
+
+        def defaults(self):
+            res = set()
+            for f in fields(self.__canals_input__):
+                if f.default is not MISSING:
+                    res.add(f.name)
+                elif f.default_factory is not MISSING:
+                    res.add(f.name)
+                elif getattr(self.__canals_input__, f.name):
+                    res.add(f.name)
+            return res
+
+        class_.defaults = defaults
+
+        # TODO: Should we make the output class a property too?
+        # It would make it a bit easier to set output fields dinamically then?
+        # setattr(class_, output.__name__, output())
 
         # Save optional inputs, optionals inputs are those fields for the __canals_input__ dataclass
         # that have an Optional type.
@@ -262,7 +308,7 @@ class _Component:
 
         # Makes sure the self.defaults and self.init_parameters dictionaries are always present
         class_.init_parameters = {}
-        class_.defaults = {}
+        # class_.defaults = {}
 
         # Automatically registers all the init parameters in an instance attribute called `init_parameters`.
         class_.__init__ = _save_init_params(class_.__init__)
@@ -290,6 +336,16 @@ class _Component:
 component = _Component()
 
 
+class Foo:
+    @component.input
+    class In:
+        value: int
+
+    @component.output
+    class Out:
+        value: int
+
+
 def _find_input_output(class_):
     """
     Finds the input and the output definitions for class_ and returns them.
@@ -301,16 +357,18 @@ def _find_input_output(class_):
     outputs_found = []
 
     # Get all properties of class_
-    properties = inspect.getmembers(class_, predicate=lambda m: isinstance(m, property))
-    for _, prop in properties:
-        if not hasattr(prop, "fget") and not hasattr(prop.fget, "__canals_connection__"):
+
+    methods = inspect.getmembers(class_, predicate=inspect.isfunction)
+    classes = inspect.getmembers(class_, predicate=inspect.isclass)
+    for _, inner_class in methods + classes:
+        if not hasattr(inner_class, "__canals_connection__"):
             continue
 
         # Field __canals_connection__ is set by _input and _output decorators
-        if prop.fget.__canals_connection__ == Connection.INPUT:
-            inputs_found.append(prop)
-        elif prop.fget.__canals_connection__ == Connection.OUTPUT:
-            outputs_found.append(prop)
+        if inner_class.__canals_connection__ == Connection.INPUT:
+            inputs_found.append(inner_class)
+        elif inner_class.__canals_connection__ == Connection.OUTPUT:
+            outputs_found.append(inner_class)
 
     if (in_len := len(inputs_found)) != 1:
         # Raise if we don't find only a single input definition

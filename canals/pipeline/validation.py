@@ -67,7 +67,7 @@ def _validate_input_sockets_are_connected(graph: networkx.MultiDiGraph, input_va
     for node, sockets in valid_inputs.items():
         for socket in sockets:
             node_instance = graph.nodes[node]["instance"]
-            input_in_node_defaults = hasattr(node_instance, "defaults") and socket.name in node_instance.defaults
+            input_in_node_defaults = hasattr(node_instance, "defaults") and socket.name in node_instance.defaults()
             inputs_for_node = input_values.get(node)
             missing_input_value = (
                 not inputs_for_node

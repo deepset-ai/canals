@@ -121,16 +121,16 @@ def test_unmarshal():
 
     first_addition = pipe1.get_component("first_addition")
     assert type(first_addition) == AddFixedValue
-    assert first_addition.defaults["add"] == 300
+    assert first_addition.In.add == 300
 
     second_addition = pipe1.get_component("second_addition")
     assert type(second_addition) == AddFixedValue
-    assert second_addition.defaults["add"] == 1
+    assert second_addition.In.add == 1
     assert second_addition != first_addition
 
     third_addition = pipe1.get_component("third_addition")
     assert type(third_addition) == AddFixedValue
-    assert third_addition.defaults["add"] == 300
+    assert third_addition.In.add == 300
     assert third_addition == first_addition
 
     double = pipe1.get_component("double")
@@ -147,12 +147,12 @@ def test_unmarshal():
 
     first_addition_2 = pipe2.get_component("first_addition")
     assert type(first_addition_2) == AddFixedValue
-    assert first_addition_2.defaults["add"] == 300
+    assert first_addition_2.In.add == 300
     assert first_addition_2 == first_addition
 
     second_addition_2 = pipe2.get_component("second_addition")
     assert type(second_addition_2) == AddFixedValue
-    assert second_addition_2.defaults["add"] == 1
+    assert second_addition_2.In.add == 1
     assert second_addition_2 != first_addition_2
     assert second_addition_2 == second_addition
 

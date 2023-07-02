@@ -13,24 +13,18 @@ class Double:
     """
 
     @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-
-        return Input
+    class Input:
+        value: int
 
     @component.output  # type: ignore
-    def output(self):
-        class Output:
-            value: int
-
-        return Output
+    class Output:
+        value: int
 
     def run(self, data):
         """
         Doubles the input value
         """
-        return self.output(value=data.value * 2)
+        return self.Output(value=data.value * 2)
 
 
 class TestDouble(BaseTestComponent):
@@ -39,6 +33,6 @@ class TestDouble(BaseTestComponent):
 
     def test_double_default(self):
         component = Double()
-        results = component.run(component.input(value=10))
-        assert results == component.output(value=20)
+        results = component.run(component.Input(value=10))
+        assert results == component.Output(value=20)
         assert component.init_parameters == {}

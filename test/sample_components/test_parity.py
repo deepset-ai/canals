@@ -15,19 +15,13 @@ class Parity:
     """
 
     @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-
-        return Input
+    class Input:
+        value: int
 
     @component.output  # type: ignore
-    def output(self):
-        class Output:
-            even: Optional[int] = None
-            odd: Optional[int] = None
-
-        return Output
+    class Output:
+        even: Optional[int] = None
+        odd: Optional[int] = None
 
     def run(self, data):
         """
@@ -35,8 +29,8 @@ class Parity:
         """
         remainder = data.value % 2
         if remainder:
-            return self.output(odd=data.value)
-        return self.output(even=data.value)
+            return self.Output(odd=data.value)
+        return self.Output(even=data.value)
 
 
 class TestParity(BaseTestComponent):
@@ -45,7 +39,7 @@ class TestParity(BaseTestComponent):
 
     def test_parity(self):
         component = Parity()
-        results = component.run(component.input(value=1))
-        assert results == component.output(odd=1)
-        results = component.run(component.input(value=2))
-        assert results == component.output(even=2)
+        results = component.run(component.Input(value=1))
+        assert results == component.Output(odd=1)
+        results = component.run(component.Input(value=2))
+        assert results == component.Output(even=2)

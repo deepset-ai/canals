@@ -20,19 +20,13 @@ class Accumulate:
     are not directly serializable.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
+    @component.input
+    class Input:
+        value: int
 
-        return Input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            value: int
-
-        return Output
+    @component.output
+    class Output:
+        value: int
 
     def __init__(self, function: Optional[Union[Callable, str]] = None):
         """
@@ -53,7 +47,7 @@ class Accumulate:
 
     def run(self, data):
         self.state = self.function(self.state, data.value)
-        return self.output(value=self.state)
+        return self.Output(value=self.state)
 
     def _load_function(self, function: Union[Callable, str]):
         """
@@ -102,12 +96,12 @@ class TestAccumulate(BaseTestComponent):
 
     def test_accumulate_default(self):
         component = Accumulate()
-        results = component.run(component.input(value=10))
-        assert results == component.output(value=10)
+        results = component.run(component.Input(value=10))
+        assert results == component.Output(value=10)
         assert component.state == 10
 
-        results = component.run(component.input(value=1))
-        assert results == component.output(value=11)
+        results = component.run(component.Input(value=1))
+        assert results == component.Output(value=11)
         assert component.state == 11
 
         assert component.init_parameters == {}
@@ -115,12 +109,12 @@ class TestAccumulate(BaseTestComponent):
     def test_accumulate_callable(self):
         component = Accumulate(function=my_subtract)
 
-        results = component.run(component.input(value=10))
-        assert results == component.output(value=-10)
+        results = component.run(component.Input(value=10))
+        assert results == component.Output(value=-10)
         assert component.state == -10
 
-        results = component.run(component.input(value=1))
-        assert results == component.output(value=-11)
+        results = component.run(component.Input(value=1))
+        assert results == component.Output(value=-11)
         assert component.state == -11
 
         assert component.init_parameters == {
@@ -130,12 +124,12 @@ class TestAccumulate(BaseTestComponent):
     def test_accumulate_string(self):
         component = Accumulate(function="test.sample_components.test_accumulate.my_subtract")
 
-        results = component.run(component.input(value=10))
-        assert results == component.output(value=-10)
+        results = component.run(component.Input(value=10))
+        assert results == component.Output(value=-10)
         assert component.state == -10
 
-        results = component.run(component.input(value=1))
-        assert results == component.output(value=-11)
+        results = component.run(component.Input(value=1))
+        assert results == component.Output(value=-11)
         assert component.state == -11
 
         assert component.init_parameters == {
