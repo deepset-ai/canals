@@ -27,8 +27,11 @@ def test_complex_pipeline(tmp_path):
     loop_merger = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
     summer = Sum(inputs=["in_1", "in_2", "in_3"])
 
+    greet_first = Greet(message="Hello, the value is {value}.")
+    greet_enumerator = Greet(message="Hello from enumerator, here the value became {value}.")
+
     pipeline = Pipeline(max_loops_allowed=2)
-    pipeline.add_component("greet_first", Greet(message="Hello, the value is {value}."))
+    pipeline.add_component("greet_first", greet_first)
     pipeline.add_component("accumulate_1", accumulate)
     pipeline.add_component("add_two", AddFixedValue(add=2))
     pipeline.add_component("parity", Parity())
@@ -42,7 +45,7 @@ def test_complex_pipeline(tmp_path):
     pipeline.add_component("greet_again", Greet(message="Hello again, now the value is {value}."))
     pipeline.add_component("sum", summer)
 
-    pipeline.add_component("greet_enumerator", Greet(message="Hello from enumerator, here the value became {value}."))
+    pipeline.add_component("greet_enumerator", greet_enumerator)
     pipeline.add_component("enumerate", Repeat(outputs=["first", "second"]))
     pipeline.add_component("add_three", AddFixedValue(add=3))
 
@@ -84,7 +87,9 @@ def test_complex_pipeline(tmp_path):
 
     pipeline.draw(tmp_path / "complex_pipeline.png")
 
-    results = pipeline.run({"greet_first": Greet().input(value=1), "greet_enumerator": Greet().input(value=1)})
+    results = pipeline.run(
+        {"greet_first": greet_first.input(value=1), "greet_enumerator": greet_enumerator.input(value=1)}
+    )
     pprint(results)
     print("accumulated: ", accumulate.state)
 

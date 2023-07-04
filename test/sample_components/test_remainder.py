@@ -6,7 +6,7 @@ from dataclasses import make_dataclass
 import pytest
 
 from canals.testing import BaseTestComponent
-from canals.component import component
+from canals.component import component, Input, Output
 
 
 @component
@@ -17,25 +17,13 @@ class Remainder:
     the second output connection.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-
-        return Input
-
     def __init__(self, divisor: int = 2):
+        self.input = Input(value=int)
+        self.output = Output(**{f"remainder_is_{val}": (int, None) for val in range(divisor)})
+
         if divisor == 0:
             raise ValueError("Can't divide by zero")
         self.divisor = divisor
-
-        self._output_type = make_dataclass(
-            "Output", fields=[(f"remainder_is_{val}", int, None) for val in range(divisor)]
-        )
-
-    @component.output  # type: ignore
-    def output(self):
-        return self._output_type
 
     def run(self, data):
         """

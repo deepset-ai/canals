@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from canals.component import component
+from canals.component import component, Input, Output
 from canals.pipeline.sockets import (
     find_input_sockets,
     InputSocket,

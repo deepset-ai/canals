@@ -14,12 +14,14 @@ logging.basicConfig(level=logging.DEBUG)
 
 def test_pipeline(tmp_path):
     add_one = AddFixedValue(add=1)
+    add_ten = AddFixedValue(add=10)
+    double = Double()
 
     pipeline = Pipeline()
     pipeline.add_component("add_one", add_one)
     pipeline.add_component("repeat", Repeat(outputs=["first", "second"]))
-    pipeline.add_component("add_ten", AddFixedValue(add=10))
-    pipeline.add_component("double", Double())
+    pipeline.add_component("add_ten", add_ten)
+    pipeline.add_component("double", double)
     pipeline.add_component("add_three", AddFixedValue(add=3))
     pipeline.add_component("add_one_again", add_one)
 
@@ -35,9 +37,9 @@ def test_pipeline(tmp_path):
     pprint(results)
 
     assert results == {
-        "add_one_again": AddFixedValue().output(value=6),
-        "add_ten": AddFixedValue().output(value=12),
-        "double": Double().output(value=4),
+        "add_one_again": add_one.output(value=6),
+        "add_ten": add_ten.output(value=12),
+        "double": double.output(value=4),
     }
 
 

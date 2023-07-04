@@ -3,12 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import inspect
-from typing import Protocol, Union, List, Any, get_origin, get_args
-from dataclasses import fields, Field
+from typing import Protocol, Any
 from functools import wraps
 
 from canals.errors import ComponentError
-from canals.component.input_output import Connection, _input, _output
+from canals.component.input_output import Input, Output
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +24,9 @@ class Component(Protocol):  # pylint: disable=too-few-public-methods
     If you want to create a new Component use the @component decorator.
     """
 
+    input: Input
+    output: Output
+
     def run(self, data: Any) -> Any:
         """
         Takes the Component input and returns its output.
@@ -34,24 +36,8 @@ class Component(Protocol):  # pylint: disable=too-few-public-methods
         We use Any both as data and return types since dataclasses don't have a specific type.
         """
 
-    @property
-    def __canals_input__(self) -> type:
-        pass
 
-    @property
-    def __canals_output__(self) -> type:
-        pass
-
-    @property
-    def __canals_optional_inputs__(self) -> List[str]:
-        pass
-
-    @property
-    def __canals_mandatory_inputs__(self) -> List[str]:
-        pass
-
-
-class _Component:
+class _Component:  # pylint: disable=too-few-public-methods
     """
     Marks a class as a component. Any class decorated with `@component` can be used by a Pipeline.
 
@@ -61,106 +47,17 @@ class _Component:
 
     All component classes must be decorated with the `@component` decorator. This allows Canals to discover them.
 
-    ### `Input`
-
-    ```python
-    @dataclass
-    class Input(ComponentInput / VariadicComponentInput):
-        <expected input fields, typed, with no defaults>
-    ```
-    Semi-mandatory method (either this or `self.input_type(self)`).
-
-    This inner class defines how the input of this component looks like. For example, if the node is expecting
-    a list of Documents, the fields of the class should be `documents: List[Document]`
-
-    Defaults are allowed, however `Optional`, `Union` and similar "generic" types are not. This is necessary to allow
-    proper validation of the connections, which rely on the type of these fields.
-
-    If your node expects variadic input, use `VariadicComponentInput`. In all other scenarios, use `ComponentInput`
-    as your base class.
-
-    Some components may need more dynamic input. For these scenarios, refer to `self.input_type()`.
-
-    Every component should define **either** `Input` or `self.input_type()`.
-
-
-    ### `input_type()`
-
-    ```python
-    @property
-    def input_type(self) -> ComponentInput / VariadicComponentInput:
-    ```
-    Semi-mandatory method (either this or `class Input`).
-
-    This method defines how the input of this component looks like. For example, if the node is expecting
-    a list of Documents, this method should return a dataclass, subclass of either `ComponentInput` or
-    `VariadicComponentInput`, with such fields. For example, it could build the dataclass as
-    `make_dataclass("Input", fields=[(f"documents", List[Document], None)], bases=(ComponentInput, ))` and return it.
-
-    Defaults are allowed, however `Optional`, `Union` and similar "generic" types are not. This is necessary to allow
-    proper validation of the connections, which rely on the type of these fields.
-
-    Normally the `Input` dataclass is preferred, as it provides autocompletion for the users and is much easier to use.
-
-    Every component should define **either** `Input` or `self.input_type()`.
-
-
-    ### `Output`
-
-    ```python
-    @dataclass
-    class Output(ComponentOutput):
-        <expected output fields, typed>
-    ```
-    Semi-mandatory method (either this or `self.output_type()`).
-
-    This inner class defines how the output of this component looks like. For example, if the node is producing
-    a list of Documents, the fields of the class should be `documents: List[Document]`
-
-    Defaults are allowed, however `Optional`, `Union` and similar "generic" types are not. This is necessary to allow
-    proper validation of the connections, which rely on the type of these fields.
-
-    Some components may need more dynamic output: for example, your component accepts a list of file extensions at
-    init time and wants to have one output field for each of those. For these scenarios, refer to `self.output_type()`.
-
-    Every component should define **either** `Output` or `self.output_type()`.
-
-
-    ### `output_type()`
-
-    ```python
-    @property
-    def output_type(self) -> ComponentOutput:
-    ```
-    Semi-mandatory method (either this or `class Output`).
-
-    This method defines how the output of this component looks like. For example, if the node is producing
-    a list of Documents, this method should return a dataclass with such fields, for example:
-    `return make_dataclass("Output", fields=[(f"documents", List[Document], None)], bases=(ComponentOutput, ))`
-
-    Defaults are allowed, however `Optional`, `Union` and similar "generic" types are not. This is necessary to allow
-    proper validation of the connections, which rely on the type of these fields.
-
-    If the output is static, normally the `Output` dataclass is preferred, as it provides autocompletion for the users.
-
-    Every component should define **either** `Output` or `self.output_type`.
-
-
     ### `__init__()`
 
     ```python
     def __init__(self, [... components init parameters ...]):
     ```
-    Optional method.
+    Mandatory method.
 
     Components may have an `__init__` method where they define:
 
-    - `self.defaults = {parameter_name: parameter_default_value, ...}`:
-        All values defined here will be sent to the `run()` method when the Pipeline calls it.
-        If any of these parameters is also receiving input from other components, those have precedence.
-        This collection of values is supposed to replace the need for default values in `run()` and make them
-        dynamically configurable. Keep in mind that only these defaults will count at runtime: defaults given to
-        the `Input` dataclass (see above) will be ignored.
+    - `self.input`: TODO
+    - `self.output`: TODO
 
     - `self.init_parameters = {same parameters that the __init__ method received}`:
         In this dictionary you can store any state the components wish to be persisted when they are saved.
@@ -179,7 +76,6 @@ class _Component:
     validation of the pipeline. If a component has some heavy state to initialize (models, backends, etc...) refer to
     the `warm_up()` method.
 
-
     ### `warm_up()`
 
     ```python
@@ -189,7 +85,6 @@ class _Component:
 
     This method is called by Pipeline before the graph execution. Make sure to avoid double-initializations,
     because Pipeline will not keep track of which components it called `warm_up()` on.
-
 
     ### `run()`
 
@@ -204,9 +99,9 @@ class _Component:
     When the component should run, Pipeline will call this method with:
 
     - all the input values coming from other components connected to it,
-    - if any is missing, the corresponding value defined in `self.defaults`, if it exists.
+    - if any is missing, the corresponding default value from the dataclass, if it exists.
 
-    `run()` must return a single instance of the dataclass declared through either `Output` or `self.output_type()`.
+    `run()` must return a single instance of the dataclass declared through `self.output`.
 
     Args:
         class_: the class that Canals should use as a component.
@@ -223,46 +118,16 @@ class _Component:
     def __init__(self):
         self.registry = {}
 
-    @property
-    def input(self):
-        """
-        TODO: Documentation
-        """
-        return _input
-
-    @property
-    def output(self):
-        """
-        TODO: Documentation
-        """
-        return _output
-
     def _decorate(self, class_):
         # '__canals_component__' is used to distinguish components from regular classes.
         # Its value is set to the desired component name: normally it is the class name, but it can technically be customized.
         class_.__canals_component__ = class_.__name__
 
-        # Find input and output properties
-        (input_, output) = _find_input_output(class_)
-
-        # Save the input and output properties so it's easier to find them when running the Component since we won't
-        # need to search the exact property name each time
-        class_.__canals_input__ = input_
-        class_.__canals_output__ = output
-
-        # Save optional inputs, optionals inputs are those fields for the __canals_input__ dataclass
-        # that have an Optional type.
-        # Those are necessary to implement Components that can run with partial input, this gives us
-        # the possibility to have cycles in Pipelines.
-        class_.__canals_optional_inputs__ = property(_optional_inputs)
-        class_.__canals_mandatory_inputs__ = property(_mandatory_inputs)
-
         # Check that the run method respects all constraints
         _check_run_signature(class_)
 
-        # Makes sure the self.defaults and self.init_parameters dictionaries are always present
+        # Makes sure the self.init_parameters is always present
         class_.init_parameters = {}
-        class_.defaults = {}
 
         # Automatically registers all the init parameters in an instance attribute called `init_parameters`.
         class_.__init__ = _save_init_params(class_.__init__)
@@ -290,51 +155,6 @@ class _Component:
 component = _Component()
 
 
-def _find_input_output(class_):
-    """
-    Finds the input and the output definitions for class_ and returns them.
-
-    There must be only a single definition of input and output for class_, if either
-    none or more than one are found raise ConnectionError.
-    """
-    inputs_found = []
-    outputs_found = []
-
-    # Get all properties of class_
-    properties = inspect.getmembers(class_, predicate=lambda m: isinstance(m, property))
-    for _, prop in properties:
-        if not hasattr(prop, "fget") and not hasattr(prop.fget, "__canals_connection__"):
-            continue
-
-        # Field __canals_connection__ is set by _input and _output decorators
-        if prop.fget.__canals_connection__ == Connection.INPUT:
-            inputs_found.append(prop)
-        elif prop.fget.__canals_connection__ == Connection.OUTPUT:
-            outputs_found.append(prop)
-
-    if (in_len := len(inputs_found)) != 1:
-        # Raise if we don't find only a single input definition
-        if in_len == 0:
-            raise ComponentError(
-                f"No input definition found in Component {class_.__name__}. "
-                "Create a method that returns a dataclass defining the input and "
-                "decorate it with @component.input() to fix the error."
-            )
-        raise ComponentError(f"Multiple input definitions found for Component {class_.__name__}.")
-
-    if (in_len := len(outputs_found)) != 1:
-        # Raise if we don't find only a single output definition
-        if in_len == 0:
-            raise ComponentError(
-                f"No output definition found in Component {class_.__name__}. "
-                "Create a method that returns a dataclass defining the output and "
-                "decorate it with @component.output() to fix the error."
-            )
-        raise ComponentError(f"Multiple output definitions found for Component {class_.__name__}.")
-
-    return (inputs_found[0], outputs_found[0])
-
-
 def _check_run_signature(class_):
     """
     Check that the component's run() method exists and respects all constraints
@@ -351,29 +171,6 @@ def _check_run_signature(class_):
     # The input param must be called data
     if not "data" in run_signature.parameters:
         raise ComponentError("run() must accept a parameter called 'data'.")
-
-
-def _is_optional(field: Field) -> bool:
-    """
-    Utility method that returns whether a field has an Optional type or not.
-    """
-    return get_origin(field.type) is Union and type(None) in get_args(field.type)
-
-
-def _optional_inputs(self) -> List[str]:
-    """
-    Return all field names of self that have an Optional type.
-    This is meant to be set as a property in a Component.
-    """
-    return [f.name for f in fields(self.__canals_input__) if _is_optional(f)]
-
-
-def _mandatory_inputs(self) -> List[str]:
-    """
-    Return all field names of self that don't have an Optional type.
-    This is meant to be set as a property in a Component.
-    """
-    return [f.name for f in fields(self.__canals_input__) if not _is_optional(f)]
 
 
 def _save_init_params(init_func):

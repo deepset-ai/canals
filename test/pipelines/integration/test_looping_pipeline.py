@@ -16,13 +16,15 @@ logging.basicConfig(level=logging.DEBUG)
 def test_pipeline(tmp_path):
     accumulator = Accumulate()
     merge_loop = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
+    add_one = AddFixedValue(add=1)
+    add_two = AddFixedValue(add=2)
 
     pipeline = Pipeline(max_loops_allowed=10)
-    pipeline.add_component("add_one", AddFixedValue(add=1))
+    pipeline.add_component("add_one", add_one)
     pipeline.add_component("merge", merge_loop)
     pipeline.add_component("below_10", Threshold(threshold=10))
     pipeline.add_component("accumulator", accumulator)
-    pipeline.add_component("add_two", AddFixedValue(add=2))
+    pipeline.add_component("add_two", add_two)
 
     pipeline.connect("add_one", "merge.in_1")
     pipeline.connect("merge", "below_10")
@@ -32,11 +34,11 @@ def test_pipeline(tmp_path):
 
     pipeline.draw(tmp_path / "looping_pipeline.png")
 
-    results = pipeline.run({"add_one": AddFixedValue().input(value=3)})
+    results = pipeline.run({"add_one": add_one.input(value=3)})
     pprint(results)
     print("accumulator: ", accumulator.state)
 
-    assert results == {"add_two": AddFixedValue().output(value=18)}
+    assert results == {"add_two": add_two.output(value=18)}
     assert accumulator.state == 16
 
 

@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 import builtins
 from typing import List, Union, Optional
-from dataclasses import make_dataclass, is_dataclass, asdict
+from dataclasses import is_dataclass, asdict
 
-from canals.component import component
+from canals.component import component, Input, Output
 from canals.testing import BaseTestComponent
 
 
@@ -21,28 +21,16 @@ class MergeLoop:
         else:
             self.expected_type = expected_type
         self.init_parameters = {"expected_type": self.expected_type.__name__}
-        # mypy complains that we can't Optional is not a type, so we ignore the error
-        # cause we consider this to be correct
-        self._input = make_dataclass("Input", fields=[(f, Optional[self.expected_type]) for f in inputs])  # type: ignore
-
-    @component.input  # type: ignore
-    def input(self):
-        return self._input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            value: self.expected_type  # type: ignore
-
-        return Output
+        self.input = Input(**{f: Optional[self.expected_type] for f in inputs})
+        self.output = Output(value=self.expected_type)
 
     def run(self, data):
         """
         Takes some inputs and returns the first one that is not None.
         """
-        values = []
+        values: List[self.expected_type] = []
         if is_dataclass(data):
-            values = asdict(data).values()
+            values = list(asdict(data).values())
         for v in values:
             if v is not None:
                 return self.output(value=v)

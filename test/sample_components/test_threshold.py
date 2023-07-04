@@ -5,7 +5,7 @@ from typing import Optional
 
 
 from canals.testing import BaseTestComponent
-from canals.component import component
+from canals.component import component, Input, Output
 
 
 @component
@@ -19,28 +19,12 @@ class Threshold:
     :param threshold: the number to compare the input value against. This is also a parameter.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-            threshold: int = 10
-
-        return Input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            above: int
-            below: int
-
-        return Output
-
-    def __init__(self, threshold: Optional[int] = None):
+    def __init__(self, threshold: int = 10):
         """
         :param threshold: the number to compare the input value against.
         """
-        if threshold:
-            self.defaults = {"threshold": threshold}
+        self.input = Input(value=int, threshold=(int, threshold))
+        self.output = Output(above=int, below=int)
 
     def run(self, data):
         if data.value < data.threshold:

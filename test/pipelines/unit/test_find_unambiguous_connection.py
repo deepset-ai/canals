@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from canals.errors import PipelineConnectError
-from canals.component import component
+from canals.component import component, Input, Output
 from canals.pipeline.sockets import find_input_sockets, find_output_sockets
 from canals.pipeline.connections import find_unambiguous_connection
 

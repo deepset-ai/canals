@@ -81,8 +81,8 @@ class Pipeline:
         nodes = []
         for node in graph.nodes:
             comparable_node = graph.nodes[node]
-            if hasattr(comparable_node, "defaults"):
-                comparable_node["defaults"] = comparable_node["instance"].defaults
+            # if hasattr(comparable_node, "defaults"):
+            #     comparable_node["defaults"] = comparable_node["instance"].defaults
             comparable_node["instance"] = comparable_node["instance"].__class__
             nodes.append(comparable_node)
         nodes.sort()
@@ -493,10 +493,10 @@ class Pipeline:
         received_input_sockets = set(inputs.keys())
 
         # All components inputs, whether they're connected, default or pipeline inputs
-        instance = self.graph.nodes[name]["instance"]
-        input_sockets = {f.name for f in fields(instance.__canals_input__)}
-        optional_input_sockets = set(instance.__canals_optional_inputs__)
-        mandatory_input_sockets = set(instance.__canals_mandatory_inputs__)
+        instance: Component = self.graph.nodes[name]["instance"]
+        input_sockets = {f.name for f in fields(instance.input)}
+        optional_input_sockets = set(instance.input.__canals_optionals__)
+        mandatory_input_sockets = set(instance.input.__canals_mandatory__)
 
         # Components that are in the inputs buffer and have no inputs assigned are considered skipped
         skipped_components = {n for n, v in inputs_buffer.items() if not v}
@@ -532,15 +532,14 @@ class Pipeline:
             #   * There are no optional inputs or
             #   * All optional inputs are skipped or
             #   * We received part of the optional inputs, the rest are skipped
-            if logger.level == logging.DEBUG:
-                if not optional_input_sockets:
-                    logger.debug("Component '%s' is ready to run. All mandatory inputs received.", name)
-                else:
-                    logger.debug(
-                        "Component '%s' is ready to run. All mandatory inputs received, skipped optional inputs: %s",
-                        name,
-                        skipped_optional_input_sockets,
-                    )
+            if not optional_input_sockets:
+                logger.debug("Component '%s' is ready to run. All mandatory inputs received.", name)
+            else:
+                logger.debug(
+                    "Component '%s' is ready to run. All mandatory inputs received, skipped optional inputs: %s",
+                    name,
+                    skipped_optional_input_sockets,
+                )
             return "run"
 
         if set(input_components.values()).issubset(received_input_sockets):
@@ -666,22 +665,14 @@ class Pipeline:
         Once we're confident this component is ready to run, run it and collect the output.
         """
         self.graph.nodes[name]["visits"] += 1
-        instance = self.graph.nodes[name]["instance"]
+        instance: Component = self.graph.nodes[name]["instance"]
         try:
             logger.info("* Running %s (visits: %s)", name, self.graph.nodes[name]["visits"])
             logger.debug("   '%s' inputs: %s", name, inputs)
 
-            # Optional fields are defaulted to None so creation of the input dataclass doesn't fail
-            # cause we're missing some argument
-            optionals = {field: None for field in instance.__canals_optional_inputs__}
-
-            # Pass the inputs as kwargs after adding the component's own defaults to them
-            inputs = {**optionals, **instance.defaults, **inputs}
-            input_dataclass = instance.input(**inputs)
-
+            input_dataclass = instance.input(**inputs)  # type: ignore   # FIXME!!
             output_dataclass = instance.run(input_dataclass)
 
-            # Unwrap the output
             logger.debug("   '%s' outputs: %s\n", name, output_dataclass.__dict__)
 
         except Exception as e:

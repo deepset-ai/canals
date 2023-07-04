@@ -14,18 +14,21 @@ logging.basicConfig(level=logging.DEBUG)
 
 def test_pipeline(tmp_path):
     pipeline = Pipeline()
-    pipeline.add_component("first_addition", AddFixedValue(add=2))
-    pipeline.add_component("second_addition", AddFixedValue())
+    afv2 = AddFixedValue(add=2)
+    afv1 = AddFixedValue()
+
+    pipeline.add_component("first_addition", afv2)
+    pipeline.add_component("second_addition", afv1)
     pipeline.add_component("double", Double())
     pipeline.connect("first_addition", "double")
     pipeline.connect("double", "second_addition")
 
     pipeline.draw(tmp_path / "linear_pipeline.png")
 
-    results = pipeline.run({"first_addition": AddFixedValue().input(value=1)})
+    results = pipeline.run({"first_addition": afv2.input(value=1)})
     pprint(results)
 
-    assert results == {"second_addition": AddFixedValue().output(value=7)}
+    assert results == {"second_addition": afv1.output(value=7)}
 
 
 if __name__ == "__main__":

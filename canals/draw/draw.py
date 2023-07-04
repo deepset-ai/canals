@@ -5,6 +5,7 @@ from typing import Literal, Optional, Dict, get_args, Any
 
 import logging
 from pathlib import Path
+from dataclasses import _MISSING_TYPE
 
 import networkx
 
@@ -95,9 +96,7 @@ def _prepare_for_drawing(graph: networkx.MultiDiGraph, style_map: Dict[str, str]
     graph.add_node("input")
     for node, in_sockets in find_pipeline_inputs(graph).items():
         for in_socket in in_sockets:
-            node_instance = graph.nodes[node]["instance"]
-            socket_has_default = in_socket.name in node_instance.defaults
-            if not socket_has_default and in_socket.sender is None:
+            if in_socket.default is not _MISSING_TYPE and in_socket.sender is None:
                 # If this socket has no defaults and no other component sends anything to it
                 # it must be a socket that receives input directly when running the Pipeline
                 graph.add_edge("input", node, label=in_socket.name)

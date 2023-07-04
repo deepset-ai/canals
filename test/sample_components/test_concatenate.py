@@ -4,7 +4,7 @@
 from typing import Union, List
 
 from canals.testing import BaseTestComponent
-from canals.component import component
+from canals.component import component, Input, Output
 
 
 @component
@@ -13,20 +13,9 @@ class Concatenate:
     Concatenates two values
     """
 
-    @component.input
-    def input(self):
-        class Input:
-            first: Union[List[str], str]
-            second: Union[List[str], str]
-
-        return Input
-
-    @component.output
-    def output(self):
-        class Output:
-            value: List[str]
-
-        return Output
+    def __init__(self):
+        self.input = Input(first=Union[List[str], str], second=Union[List[str], str])
+        self.output = Output(value=List[str])
 
     def run(self, data):
         if type(data.first) is str and type(data.second) is str:

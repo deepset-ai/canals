@@ -35,8 +35,8 @@ def test_pipeline(tmp_path):
 
     results = pipeline.run(
         {
-            "add_one": AddFixedValue().input(value=1),
-            "add_two": AddFixedValue().input(add=2),
+            "add_one": add_one.input(value=1),
+            "add_two": add_one.input(add=2),
         }
     )
     pprint(results)
@@ -45,8 +45,8 @@ def test_pipeline(tmp_path):
 
     results = pipeline.run(
         {
-            "add_one": AddFixedValue().input(value=2),
-            "add_two": AddFixedValue().input(add=2),
+            "add_one": add_one.input(value=2),
+            "add_two": add_one.input(add=2),
         }
     )
     pprint(results)

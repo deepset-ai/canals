@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 from canals.testing import BaseTestComponent
-from canals.component import component
+from canals.component import component, Input, Output
 
 
 @component
@@ -11,20 +11,9 @@ class Subtract:
     Compute the difference between two values.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            first_value: int
-            second_value: int
-
-        return Input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            difference: int
-
-        return Output
+    def __init__(self):
+        self.input = Input(first_value=int, second_value=int)
+        self.output = Output(difference=int)
 
     def run(self, data):
         """

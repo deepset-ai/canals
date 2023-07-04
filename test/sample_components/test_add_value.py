@@ -1,37 +1,18 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Optional
+from typing import Optional, Tuple, Dict, Union, Any, get_origin, get_args
 
 
-from canals.component import component
+from canals.component import component, Input, Output
 from canals.testing.test_component import BaseTestComponent
 
 
 @component
 class AddFixedValue:
-    """
-    Adds the value of `add` to `value`. If not given, `add` defaults to 1.
-    """
-
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-            add: int
-
-        return Input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            value: int
-
-        return Output
-
-    def __init__(self, add: Optional[int] = 1):
-        if add:
-            self.defaults = {"add": add}
+    def __init__(self, add: int = 1):
+        self.input = Input(value=int, add=(int, add))
+        self.output = Output(value=int)
 
     def run(self, data):
         return self.output(value=data.value + data.add)

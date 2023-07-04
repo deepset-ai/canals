@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 def test_pipeline(tmp_path):
     add_two = AddFixedValue(add=2)
+    add_one = AddFixedValue(add=1)
     make_the_sum = Sum(inputs=["in_1", "in_2", "in_3"])
 
     pipeline = Pipeline()
@@ -21,7 +22,7 @@ def test_pipeline(tmp_path):
     pipeline.add_component("second_addition", add_two)
     pipeline.add_component("third_addition", add_two)
     pipeline.add_component("sum", make_the_sum)
-    pipeline.add_component("fourth_addition", AddFixedValue(add=1))
+    pipeline.add_component("fourth_addition", add_one)
 
     pipeline.connect("first_addition", "second_addition")
     pipeline.connect("first_addition", "sum.in_1")
@@ -33,13 +34,13 @@ def test_pipeline(tmp_path):
 
     results = pipeline.run(
         {
-            "first_addition": AddFixedValue().input(value=1),
-            "third_addition": AddFixedValue().input(value=1),
+            "first_addition": add_two.input(value=1),
+            "third_addition": add_two.input(value=1),
         }
     )
     pprint(results)
 
-    assert results == {"fourth_addition": AddFixedValue().output(value=12)}
+    assert results == {"fourth_addition": add_one.output(value=12)}
 
 
 if __name__ == "__main__":

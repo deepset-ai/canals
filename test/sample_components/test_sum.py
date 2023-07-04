@@ -5,7 +5,7 @@ from typing import Optional
 from dataclasses import make_dataclass, asdict, is_dataclass
 
 from canals.testing import BaseTestComponent
-from canals.component import component
+from canals.component import component, Input, Output
 
 
 @component
@@ -15,20 +15,8 @@ class Sum:
     """
 
     def __init__(self, inputs=["value_1"]) -> None:
-        # mypy complains that we can't Optional is not a type, so we ignore the error
-        # cause we consider this to be correct
-        self._input = make_dataclass("Input", fields=[(f, Optional[int]) for f in inputs])  # type: ignore
-
-    @component.input  # type: ignore
-    def input(self):
-        return self._input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            total: int
-
-        return Output
+        self.input = Input(**{f: Optional[int] for f in inputs})
+        self.output = Output(total=int)
 
     def run(self, data):
         values = []

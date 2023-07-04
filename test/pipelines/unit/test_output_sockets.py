@@ -2,7 +2,7 @@ from typing import List, Optional, Union, Set, Sequence, Iterable, Dict, Mapping
 
 import pytest
 
-from canals.component import component
+from canals.component import component, Input, Output
 from canals.pipeline.sockets import (
     find_output_sockets,
     OutputSocket,

@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import List
 
-from dataclasses import make_dataclass
+from dataclasses import fields
 
 
 from canals.testing import BaseTestComponent
-from canals.component import component
+from canals.component import component, Input, Output
 
 
 @component
@@ -16,25 +16,14 @@ class Repeat:
     Repeats the input value on all outputs.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-
-        return Input
-
     def __init__(self, outputs: List[str] = ["output_1", "output_2", "output_3"]):
-        self.outputs = outputs
-        self._output_type = make_dataclass("Output", fields=[(val, int, None) for val in outputs])
-
-    @component.output  # type: ignore
-    def output(self):
-        return self._output_type
+        self.input = Input(value=int)
+        self.output = Output(**{val: (int, None) for val in outputs})
 
     def run(self, data):
         output_dataclass = self.output()
-        for output in self.outputs:
-            setattr(output_dataclass, output, data.value)
+        for output_field in fields(self.output):
+            setattr(output_dataclass, output_field.name, data.value)
         return output_dataclass
 
 

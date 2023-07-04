@@ -6,7 +6,7 @@ import sys
 import builtins
 from importlib import import_module
 
-from canals.component import component
+from canals.component import component, Input, Output
 from canals.testing import BaseTestComponent
 
 
@@ -20,20 +20,6 @@ class Accumulate:
     are not directly serializable.
     """
 
-    @component.input  # type: ignore
-    def input(self):
-        class Input:
-            value: int
-
-        return Input
-
-    @component.output  # type: ignore
-    def output(self):
-        class Output:
-            value: int
-
-        return Output
-
     def __init__(self, function: Optional[Union[Callable, str]] = None):
         """
         :param function: the function to use to accumulate the values.
@@ -42,6 +28,9 @@ class Accumulate:
             If it's a string, the component will look for it in sys.modules and
             import it at need. This is also a parameter.
         """
+        self.input = Input(value=int)
+        self.output = Output(value=int)
+
         self.state = 0
 
         if function is None:
