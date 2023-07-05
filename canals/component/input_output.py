@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Union, List, get_origin, get_args, Tuple, ClassVar, Any, TYPE_CHECKING
+from typing import Union, List, get_origin, get_args, Tuple, ClassVar, Any, TYPE_CHECKING, Dict
 from dataclasses import make_dataclass, fields, _MISSING_TYPE, Field
 
 
@@ -14,7 +14,7 @@ class Input:
     __canals_mandatory__: List[str]
 
     if TYPE_CHECKING:
-        __dataclass_fields__: ClassVar[dict[str, Field[Any]]]  # To please mypy's DataclassInstance protocol
+        __dataclass_fields__: ClassVar[Dict[str, Field[Any]]]  # To please mypy's DataclassInstance protocol
 
     def __new__(cls, **dataclass_fields):
         final_fields = []
