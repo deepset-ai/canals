@@ -183,6 +183,11 @@ def _save_init_params(init_func):
         # Call the actual __init__ function with the arguments
         init_func(self, *args, **kwargs)
 
+        if not hasattr(self, "input"):
+            raise ComponentError("Component must declare their input as self.input = Input(...fields...)")
+        if not hasattr(self, "output"):
+            raise ComponentError("Component must declare their output as self.output = Output(...fields...)")
+
         # Collect and store all the init parameters, preserving whatever the components might have already added there
         self.init_parameters = {**kwargs, **self.init_parameters}
 

@@ -30,9 +30,7 @@ def test_input_required():
 
     with pytest.raises(
         ComponentError,
-        match="No input definition found in Component MockComponent. "
-        "Create a method that returns a dataclass defining the input and "
-        "decorate it with @component.input\(\) to fix the error.",
+        match="Component must declare their input",
     ):
         MockComponent()
 
@@ -48,9 +46,7 @@ def test_output_required():
 
     with pytest.raises(
         ComponentError,
-        match="No output definition found in Component MockComponent. "
-        "Create a method that returns a dataclass defining the output and "
-        "decorate it with @component.output\(\) to fix the error.",
+        match="Component must declare their output",
     ):
         MockComponent()
 
