@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import List, Dict, Any
 import logging
-from dataclasses import fields, _MISSING_TYPE
+from dataclasses import fields
 
 import networkx
 
@@ -65,6 +65,7 @@ def _validate_input_sockets_are_connected(graph: networkx.MultiDiGraph, input_va
     """
     valid_inputs = find_pipeline_inputs(graph)
     for node, sockets in valid_inputs.items():
+        input_instance = graph.nodes[node]["instance"].input
         for socket in sockets:
             inputs_for_node = input_values.get(node)
             input_value_is_present = (
@@ -72,7 +73,7 @@ def _validate_input_sockets_are_connected(graph: networkx.MultiDiGraph, input_va
                 and socket.name in [f.name for f in fields(inputs_for_node)]
                 and getattr(inputs_for_node, socket.name)
             )
-            if socket.default is _MISSING_TYPE and not input_value_is_present:
+            if socket.name in input_instance.__canals_mandatory__ and not input_value_is_present and not socket.default:
                 raise ValueError(f"Missing input: {node}.{socket.name}")
 
 

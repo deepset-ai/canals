@@ -12,38 +12,18 @@ from canals.pipeline.connections import find_unambiguous_connection
 def test_find_unambiguous_connection_no_connection_possible():
     @component
     class Component1:
-        @component.input
-        def input(self):
-            class Input:
-                input_value: int
-
-            return Input
-
-        @component.output
-        def output(self):
-            class Output:
-                output_value: int
-
-            return Output
+        def __init__(self):
+            self.input = Input(input_value=int)
+            self.output = Output(output_value=int)
 
         def run(self, data):
             return self.output(output_value=data.input_value)
 
     @component
     class Component2:
-        @component.input
-        def input(self):
-            class Input:
-                input_value: str
-
-            return Input
-
-        @component.output
-        def output(self):
-            class Output:
-                output_value: str
-
-            return Output
+        def __init__(self):
+            self.input = Input(input_value=str)
+            self.output = Output(output_value=str)
 
         def run(self, data):
             return self.output(output_value=data.input_value)
@@ -66,40 +46,18 @@ def test_find_unambiguous_connection_no_connection_possible():
 def test_find_unambiguous_connection_many_connections_possible_name_matches():
     @component
     class Component1:
-        @component.input
-        def input(self):
-            class Input:
-                value: str
-
-            return Input
-
-        @component.output
-        def output(self):
-            class Output:
-                value: str
-
-            return Output
+        def __init__(self):
+            self.input = Input(value=str)
+            self.output = Output(value=str)
 
         def run(self, data):
             return self.output(value=data.value)
 
     @component
     class Component2:
-        @component.input
-        def input(self):
-            class Input:
-                value: str
-                othervalue: str
-                yetanothervalue: str
-
-            return Input
-
-        @component.output
-        def output(self):
-            class Output:
-                value: str
-
-            return Output
+        def __init__(self):
+            self.input = Input(value=str, othervalue=str, yetanothervalue=str)
+            self.output = Output(value=str)
 
         def run(self, data):
             return self.output(value=data.value)
@@ -118,38 +76,18 @@ def test_find_unambiguous_connection_many_connections_possible_name_matches():
 def test_find_unambiguous_connection_many_connections_possible_no_name_matches():
     @component
     class Component1:
-        @component.input
-        def input(self):
-            class Input:
-                value: str
-
-            return Input
-
-        @component.output
-        def output(self):
-            class Output:
-                value: str
-
-            return Output
+        def __init__(self):
+            self.input = Input(value=str)
+            self.output = Output(value=str)
 
         def run(self, data):
             return self.output(value=data.value)
 
     @component
     class Component2:
-        @component.input
-        def input(self):
-            class Input:
-                value1: str
-                value2: str
-                value3: str
-
-            return Input
-
-        @component.output
-        def output(self):
-            class Output:
-                value: str
+        def __init__(self):
+            self.input = Input(value1=str, value2=str, value3=str)
+            self.output = Output(value=str)
 
             return Output
 

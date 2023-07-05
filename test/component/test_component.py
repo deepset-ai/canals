@@ -7,22 +7,12 @@ from canals.errors import ComponentError
 def test_correct_declaration():
     @component
     class MockComponent:
-        @component.input
-        def input(self):
-            class Input:
-                input_value: int
-
-            return Input
-
-        @component.output
-        def output(self):
-            class Output:
-                output_value: int
-
-            return Output
+        def __init__(self):
+            self.input = Input()
+            self.output = Output()
 
         def run(self, data):
-            return self.output(output_value=1)
+            return self.output()
 
     # Verifies also instantiation works with no issues
     assert MockComponent()
@@ -30,111 +20,39 @@ def test_correct_declaration():
 
 
 def test_input_required():
+    @component
+    class MockComponent:
+        def __init__(self):
+            self.output = Output()
+
+        def run(self, data):
+            return self.output()
+
     with pytest.raises(
         ComponentError,
         match="No input definition found in Component MockComponent. "
         "Create a method that returns a dataclass defining the input and "
         "decorate it with @component.input\(\) to fix the error.",
     ):
-
-        @component
-        class MockComponent:
-            @component.output
-            def output(self):
-                class Output:
-                    output_value: int
-
-                return Output
-
-            def run(self, data):
-                return MockComponent.Output(output_value=1)
+        MockComponent()
 
 
 def test_output_required():
+    @component
+    class MockComponent:
+        def __init__(self):
+            self.input = Input()
+
+        def run(self, data):
+            return 1
+
     with pytest.raises(
         ComponentError,
         match="No output definition found in Component MockComponent. "
         "Create a method that returns a dataclass defining the output and "
         "decorate it with @component.output\(\) to fix the error.",
     ):
-
-        @component
-        class MockComponent:
-            @component.input
-            def input(self):
-                class Input:
-                    input_value: int
-
-                return Input
-
-            def run(self, data):
-                return 1
-
-
-def test_only_single_input_defined():
-    with pytest.raises(
-        ComponentError,
-        match="Multiple input definitions found for Component MockComponent",
-    ):
-
-        @component
-        class MockComponent:
-            @component.input
-            def input(self):
-                class Input:
-                    input_value: int
-
-                return Input
-
-            @component.input
-            def another_input(self):
-                class Input:
-                    input_value: int
-
-                return Input
-
-            @component.output
-            def output(self):
-                class Output:
-                    output_value: int
-
-                return Output
-
-            def run(self, data):
-                return self.output(output_value=1)
-
-
-def test_only_single_output_defined():
-    with pytest.raises(
-        ComponentError,
-        match="Multiple output definitions found for Component MockComponent",
-    ):
-
-        @component
-        class MockComponent:
-            @component.input
-            def input(self):
-                class Input:
-                    input_value: int
-
-                return Input
-
-            @component.output
-            def output(self):
-                class Output:
-                    output_value: int
-
-                return Output
-
-            @component.output
-            def another_output(self):
-                class Output:
-                    output_value: int
-
-                return Output
-
-            def run(self, data):
-                return self.output(output_value=1)
+        MockComponent()
 
 
 def test_check_for_run():
@@ -142,19 +60,9 @@ def test_check_for_run():
 
         @component
         class MockComponent:
-            @component.input
-            def input(self):
-                class Input:
-                    input_value: int
-
-                return Input
-
-            @component.output
-            def output(self):
-                class Output:
-                    output_value: int
-
-                return Output
+            def __init__(self):
+                self.input = Input()
+                self.output = Output()
 
 
 def test_run_takes_only_one_param():
@@ -162,42 +70,22 @@ def test_run_takes_only_one_param():
 
         @component
         class MockComponent:
-            @component.input
-            def input(self):
-                class Input:
-                    input_value: int
-
-                return Input
-
-            @component.output
-            def output(self):
-                class Output:
-                    output_value: int
-
-                return Output
+            def __init__(self):
+                self.input = Input()
+                self.output = Output()
 
             def run(self, data, something_else: int):
                 return self.output(output_value=1)
 
 
-def test_run_takes_only_kwarg_data():
+def test_run_takes_only_data():
     with pytest.raises(ComponentError, match="must accept a parameter called 'data'."):
 
         @component
         class MockComponent:
-            @component.input
-            def input(self):
-                class Input:
-                    input_value: int
-
-                return Input
-
-            @component.output
-            def output(self):
-                class Output:
-                    output_value: int
-
-                return Output
+            def __init__(self):
+                self.input = Input()
+                self.output = Output()
 
             def run(self, wrong_name):
-                return self.output(output_value=1)
+                return self.output()
