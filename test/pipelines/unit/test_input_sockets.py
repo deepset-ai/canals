@@ -1,7 +1,7 @@
 import typing
 from typing import List, Optional, Union, Set, Sequence, Iterable, Dict, Mapping, Tuple
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pytest
 
@@ -228,5 +228,26 @@ def test_find_input_sockets_tuple_type_input():
     sockets = find_input_sockets(comp)
     expected = {
         "tuple_value": InputSocket(name="tuple_value", types={typing.Tuple[str, MyObject]}, default=None),
+    }
+    assert sockets == expected
+
+
+def test_find_input_sockets_with_default_factory():
+    class MyObject:
+        ...
+
+    @component
+    class MockComponent:
+        def __init__(self):
+            self.input = Input(input_value=(Dict[str, int], field(default_factory=dict)))
+            self.output = Output(output_value=int)
+
+        def run(self, data):
+            return self.output(output_value=1)
+
+    comp = MockComponent()
+    sockets = find_input_sockets(comp)
+    expected = {
+        "input_value": InputSocket(name="input_value", types={typing.Dict[str, int]}, default={}),
     }
     assert sockets == expected

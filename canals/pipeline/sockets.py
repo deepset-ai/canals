@@ -54,5 +54,5 @@ def _get_default(field: Field) -> Any:
     if not isinstance(field.default, _MISSING_TYPE):
         return field.default
     if not isinstance(field.default_factory, _MISSING_TYPE):
-        return field.default_factory
+        return field.default_factory()
     return _MISSING_TYPE
