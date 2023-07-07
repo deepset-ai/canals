@@ -175,7 +175,9 @@ class Pipeline:
                 raise PipelineConnectError(
                     f"'{from_node}.{from_socket_name} does not exist. "
                     f"Output connections of {from_node} are: "
-                    + ", ".join([f"{name} (type {socket.type.__name__})" for name, socket in from_sockets.items()])
+                    + ", ".join(
+                        [f"{name} (type {[t.__name__ for t in socket.types]})" for name, socket in from_sockets.items()]
+                    )
                 )
         if to_socket_name:
             to_socket = to_sockets.get(to_socket_name, None)
@@ -183,7 +185,9 @@ class Pipeline:
                 raise PipelineConnectError(
                     f"'{to_node}.{to_socket_name} does not exist. "
                     f"Input connections of {to_node} are: "
-                    + ", ".join([f"{name} (type {socket.type.__name__})" for name, socket in to_sockets.items()])
+                    + ", ".join(
+                        [f"{name} (type {[t.__name__ for t in socket.types]})" for name, socket in to_sockets.items()]
+                    )
                 )
 
         # If either one of the two sockets is not specified, look for an unambiguous connection
@@ -601,50 +605,6 @@ class Pipeline:
             f"skipped optional inputs: {skipped_optional_input_sockets}."
             f"This is likely a Canals bug. Please open an issue at https://github.com/deepset-ai/canals.",
         )
-
-    def _check_received_vs_expected_inputs(
-        self, name: str, inputs: Dict[str, Any], expected_inputs: Dict[str, str]
-    ) -> bool:
-        """
-        Check if all the inputs the component is expecting have been received.
-
-        Returns True if all the necessary inputs are received, False otherwise, and a message with the decision.
-        """
-        # No input sockets are connected: this is an input node and should be always ready to run.
-        if not expected_inputs:
-            logger.debug("Component '%s' is ready to run: it's a starting node.", name)
-            return True
-
-        # Otherwise, just make sure there is one input key for each expected input key
-        if set(expected_inputs.values()).issubset(set(inputs.keys())):
-            logger.debug("Component '%s' is ready to run: all expected inputs were received.", name)
-            return True
-
-        return False
-
-    def _connections_to_wait_for(self, name: str):
-        """
-        Return all the component/socket pairs this component is waiting for.
-        """
-        # We should be wait on all edges except for the downstream ones, to support loops.
-        # This downstream check is enabled only for nodes taking more than one input
-        # (the "entrance" of the loop).
-        data_to_wait_for = [
-            (from_node, data["to_socket"].name)
-            for from_node, _, data in self.graph.in_edges(name, data=True)
-            # ... if there's a path in the graph leading back from the current node to the
-            # input node, # and only in case this node accepts multiple inputs.
-            if networkx.has_path(self.graph, from_node, name)
-        ]
-        return data_to_wait_for
-
-    def _all_nodes_to_wait_for_run(self, nodes_to_wait_for: List[str]) -> bool:
-        """
-        Check if all the nodes this component is waiting for has run or not.
-
-        FIXME: checking for `visits>0` might not be enough for all loops.
-        """
-        return all(self.graph.nodes[node_to_wait_for]["visits"] > 0 for node_to_wait_for in nodes_to_wait_for)
 
     def _skip_downstream_unvisited_nodes(self, component: str, inputs_buffer: OrderedDict) -> OrderedDict:
         """
