@@ -85,7 +85,8 @@ def test_find_output_sockets_one_optional_builtin_type_output():
     class MockComponent:
         def __init__(self):
             self.input = Input(input_value=int)
-            self.output = Output(output_value=(Optional[int], None))
+            self.output = Output(output_value=Optional[int])
+            self.output.set_defaults(output_value=None)
 
         def run(self, data):
             return self.output(output_value=1)
@@ -104,7 +105,8 @@ def test_find_output_sockets_one_optional_object_type_output():
     class MockComponent:
         def __init__(self):
             self.input = Input(input_value=int)
-            self.output = Output(output_value=(Optional[MyObject], None))
+            self.output = Output(output_value=Optional[MyObject])
+            self.output.set_defaults(output_value=None)
 
         def run(self, data):
             return self.output(output_value=MyObject())

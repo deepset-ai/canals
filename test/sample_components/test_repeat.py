@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import List
+from typing import List, Optional
 
 from dataclasses import fields
 
@@ -18,7 +18,7 @@ class Repeat:
 
     def __init__(self, outputs: List[str] = ["output_1", "output_2", "output_3"]):
         self.input = Input(value=int)
-        self.output = Output(**{val: (int, None) for val in outputs})
+        self.output = Output(**{val: Optional[int] for val in outputs})
 
     def run(self, data):
         output_dataclass = self.output()

@@ -1,7 +1,7 @@
 import typing
 from typing import List, Optional, Union, Set, Sequence, Iterable, Dict, Mapping, Tuple
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, Field
 
 import pytest
 
@@ -87,7 +87,8 @@ def test_find_input_sockets_one_optional_builtin_type_input():
     @component
     class MockComponent:
         def __init__(self):
-            self.input = Input(input_value=(Optional[int], None))
+            self.input = Input(input_value=Optional[int])
+            self.input.set_defaults(input_value=None)
             self.output = Output(output_value=int)
 
         def run(self, data):
@@ -106,7 +107,8 @@ def test_find_input_sockets_one_optional_object_type_input():
     @component
     class MockComponent:
         def __init__(self):
-            self.input = Input(input_value=(Optional[MyObject], None))
+            self.input = Input(input_value=Optional[MyObject])
+            self.input.set_defaults(input_value=None)
             self.output = Output(output_value=int)
 
         def run(self, data):
@@ -239,7 +241,8 @@ def test_find_input_sockets_with_default_factory():
     @component
     class MockComponent:
         def __init__(self):
-            self.input = Input(input_value=(Dict[str, int], field(default_factory=dict)))
+            self.input = Input(input_value=Dict[str, int])
+            self.input.set_defaults(input_value=field(default_factory=dict))
             self.output = Output(output_value=int)
 
         def run(self, data):

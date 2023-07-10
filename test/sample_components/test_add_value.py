@@ -11,8 +11,10 @@ from canals.testing.test_component import BaseTestComponent
 @component
 class AddFixedValue:
     def __init__(self, add: int = 1):
-        self.input = Input(value=int, add=(int, add))
+        self.input = Input(value=int, add=int)
         self.output = Output(value=int)
+
+        self.input.set_defaults(add=add)
 
     def run(self, data):
         return self.output(value=data.value + data.add)

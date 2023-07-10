@@ -27,8 +27,10 @@ class Greet:
         :param message: the message to log. Can use `{value}` to embed the value.
         :param log_level: the level to log at.
         """
-        self.input = Input(value=int, message=(str, message), log_level=(str, log_level))
+        self.input = Input(value=int, message=str, log_level=str)
         self.output = Output(value=int)
+
+        self.input.set_defaults(message=message, log_level=log_level)
 
         if log_level and not getattr(logging, log_level):
             raise ValueError(f"This log level does not exist: {log_level}")

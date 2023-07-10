@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+from typing import Optional
 from dataclasses import make_dataclass
 
 import pytest
@@ -19,7 +20,7 @@ class Remainder:
 
     def __init__(self, divisor: int = 2):
         self.input = Input(value=int)
-        self.output = Output(**{f"remainder_is_{val}": (int, None) for val in range(divisor)})
+        self.output = Output(**{f"remainder_is_{val}": Optional[int] for val in range(divisor)})
 
         if divisor == 0:
             raise ValueError("Can't divide by zero")

@@ -23,8 +23,10 @@ class Threshold:
         """
         :param threshold: the number to compare the input value against.
         """
-        self.input = Input(value=int, threshold=(int, threshold))
+        self.input = Input(value=int, threshold=int)
         self.output = Output(above=int, below=int)
+
+        self.input.set_defaults(threshold=threshold)
 
     def run(self, data):
         if data.value < data.threshold:
