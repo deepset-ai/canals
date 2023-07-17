@@ -117,6 +117,7 @@ def _output(output_function=None):
             if not is_dataclass(class_):
                 class_ = dataclass(class_)
             _make_comparable(class_)
+            _make_fields_optional(class_)
             return class_
 
         # Magic field to ease some further checks, we set it in the wrapper

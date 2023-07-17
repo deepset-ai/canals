@@ -16,7 +16,7 @@ def test_pipeline(tmp_path):
     add_two = AddFixedValue(add=2)
     make_the_sum = Sum(inputs=["in_1", "in_2", "in_3"])
 
-    pipeline = Pipeline()
+    pipeline = Pipeline(max_loops_allowed=2)
     pipeline.add_component("first_addition", add_two)
     pipeline.add_component("second_addition", add_two)
     pipeline.add_component("third_addition", add_two)
