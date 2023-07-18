@@ -386,7 +386,7 @@ class Pipeline:
         if debug:
             logger.warning("Debug mode is still WIP")
 
-        data = validate_pipeline_input(self.graph, input_values=data)
+        data = _validate_pipeline_input(self.graph, input_values=data)
         self._clear_visits_count()
         self.warm_up()
         pipeline_output: Dict[str, Any] = {}
