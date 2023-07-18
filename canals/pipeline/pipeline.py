@@ -352,7 +352,7 @@ class Pipeline:
 
         return output_to_loop, output_outside_loop
 
-    def _transition_function(self, current_state: Tuple[Tuple[str, str], ...]) -> List[str]:
+    def _state_transition_function(self, state: Tuple[Tuple[str, str], ...]) -> List[str]:
         """
         Given the current state as a list of tuples of (component, socket), returns the transition to perform
         as list of components that should run.
@@ -363,7 +363,7 @@ class Pipeline:
         transition = []
         for component in self.graph.nodes:
             for valid_state in self.valid_states[component]:
-                if set(valid_state).issubset(set(current_state)):
+                if set(valid_state).issubset(set(state)):
                     transition.append(component)
 
         return transition
@@ -411,11 +411,20 @@ class Pipeline:
         step = 0
         while True:
             step += 1
+
+            # Get the transition to perform
+            transition = self._state_transition_function(state=tuple(state.keys()))
             logger.debug("##### %s^ transition #####", step)
-            output: Dict[str, Any]
-            state, output = self._compute_next_state(state, connections)
-            if not state and not output:
+            logger.debug("State: %s | Transition: %s", tuple(state.keys()), transition)
+
+            # Termination condition: stopping states return an empty transition
+            if not transition:
+                logger.debug("   --X This is a stopping state.")
                 break
+
+            # Apply the transition to get to the next state
+            output: Dict[str, Any]
+            state, output = self._apply_transition(state, transition, connections)
             pipeline_output = {**pipeline_output, **output}
 
         logger.info("Pipeline executed successfully.")
@@ -428,8 +437,8 @@ class Pipeline:
 
         return clean_output
 
-    def _compute_next_state(
-        self, state: Dict[Tuple[str, str], Any], connections: List[Tuple[str, str, str, str]]
+    def _apply_transition(
+        self, state: Dict[Tuple[str, str], Any], transition: List[str], connections: List[Tuple[str, str, str, str]]
     ) -> Tuple[Dict[Tuple[str, str], Any], Dict[str, Any]]:
         """
         Given the current state of the pipeline, compute the next state. Returns a Tuple with (state, output)
@@ -437,17 +446,8 @@ class Pipeline:
         output: Dict[str, Any] = {}
         next_state = state
 
-        # Get the transition to compute
-        current_transition = self._transition_function(tuple(state.keys()))
-
-        # Check if this is a stopping state -
-        logger.debug("State: %s | Transition: %s", tuple(state.keys()), current_transition)
-        if len(current_transition) == 0:
-            logger.debug("   --X Reached empty transition, stopping.")
-            return ({}, {})
-
         # Process all the component in this transition independently ("parallel branch execution")
-        for component in current_transition:
+        for component in transition:
             # Extract from the general state only the inputs for this component
             component_inputs = {state[1]: value for state, value in state.items() if state[0] == component}
 
