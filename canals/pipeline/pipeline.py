@@ -477,10 +477,8 @@ class Pipeline:
                     output[component][socket] = value
                     logger.debug(" - '%s.%s' goes to the output with value '%s'", component, socket, value)
 
+                # Otherwise, assign the values to the next state
                 for target in target_states:
-                    logger.error(
-                        " is %s a loop decision node? %s", component, self._identify_looping_outputs(component)
-                    )
                     if all(self._identify_looping_outputs(component)) and value is None:
                         logger.debug("   --X Loop decision nodes do not propagate None values.")
                     else:
