@@ -2,9 +2,10 @@ from typing import Optional
 
 import pytest
 
-from canals.pipeline import Pipeline, PipelineValidationError
+from canals.pipeline import Pipeline
+from canals.errors import PipelineValidationError
 from canals.pipeline.sockets import InputSocket, OutputSocket
-from canals.pipeline.validation import find_pipeline_inputs, find_pipeline_outputs
+from canals.pipeline.validation import _find_pipeline_inputs, _find_pipeline_outputs
 
 from test.sample_components import Double, AddFixedValue, Sum, Parity
 
@@ -16,7 +17,7 @@ def test_find_pipeline_input_no_input():
     pipe.connect("comp1", "comp2")
     pipe.connect("comp2", "comp1")
 
-    assert find_pipeline_inputs(pipe.graph) == {"comp1": [], "comp2": []}
+    assert _find_pipeline_inputs(pipe.graph) == {"comp1": [], "comp2": []}
 
 
 def test_find_pipeline_input_one_input():
@@ -25,7 +26,7 @@ def test_find_pipeline_input_one_input():
     pipe.add_component("comp2", Double())
     pipe.connect("comp1", "comp2")
 
-    assert find_pipeline_inputs(pipe.graph) == {
+    assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [InputSocket(name="value", type=int)],
         "comp2": [],
     }
@@ -37,7 +38,7 @@ def test_find_pipeline_input_two_inputs_same_component():
     pipe.add_component("comp2", Double())
     pipe.connect("comp1", "comp2")
 
-    assert find_pipeline_inputs(pipe.graph) == {
+    assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
             InputSocket(name="add", type=int),
@@ -54,7 +55,7 @@ def test_find_pipeline_input_some_inputs_different_components():
     pipe.connect("comp1", "comp3")
     pipe.connect("comp2", "comp3.add")
 
-    assert find_pipeline_inputs(pipe.graph) == {
+    assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
             InputSocket(name="add", type=int),
@@ -70,7 +71,7 @@ def test_find_pipeline_variable_input_nodes_in_the_pipeline():
     pipe.add_component("comp2", Double())
     pipe.add_component("comp3", Sum(inputs=["in_1", "in_2"]))
 
-    assert find_pipeline_inputs(pipe.graph) == {
+    assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
             InputSocket(name="add", type=int),
@@ -87,7 +88,7 @@ def test_find_pipeline_output_no_output():
     pipe.connect("comp1", "comp2")
     pipe.connect("comp2", "comp1")
 
-    assert find_pipeline_outputs(pipe.graph) == {}
+    assert _find_pipeline_outputs(pipe.graph) == {}
 
 
 def test_find_pipeline_output_one_output():
@@ -96,7 +97,7 @@ def test_find_pipeline_output_one_output():
     pipe.add_component("comp2", Double())
     pipe.connect("comp1", "comp2")
 
-    assert find_pipeline_outputs(pipe.graph) == {"comp2": [OutputSocket(name="value", type=int)]}
+    assert _find_pipeline_outputs(pipe.graph) == {"comp2": [OutputSocket(name="value", type=int)]}
 
 
 def test_find_pipeline_some_outputs_same_component():
@@ -105,7 +106,7 @@ def test_find_pipeline_some_outputs_same_component():
     pipe.add_component("comp2", Parity())
     pipe.connect("comp1", "comp2")
 
-    assert find_pipeline_outputs(pipe.graph) == {
+    assert _find_pipeline_outputs(pipe.graph) == {
         "comp2": [OutputSocket(name="even", type=int), OutputSocket(name="odd", type=int)]
     }
 
@@ -118,7 +119,7 @@ def test_find_pipeline_some_outputs_different_components():
     pipe.connect("comp1", "comp2")
     pipe.connect("comp1", "comp3")
 
-    assert find_pipeline_outputs(pipe.graph) == {
+    assert _find_pipeline_outputs(pipe.graph) == {
         "comp2": [OutputSocket(name="even", type=int), OutputSocket(name="odd", type=int)],
         "comp3": [
             OutputSocket(name="value", type=int),
