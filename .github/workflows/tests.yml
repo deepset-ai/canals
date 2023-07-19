@@ -22,7 +22,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install Canals
         run: |
@@ -32,7 +32,7 @@ jobs:
       - name: Mypy
         run: |
           mkdir .mypy_cache/
-          mypy --install-types --non-interactive --ignore-missing-imports canals/
+          mypy --install-types --non-interactive --ignore-missing-imports **/*.py
 
   pylint:
     runs-on: ubuntu-latest
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install Canals
         run: |
@@ -51,7 +51,7 @@ jobs:
           pip install .[mermaid,graphviz,dev]
 
       - name: Pylint
-        run: pylint -ry -j 0 canals/
+        run: pylint -ry -j 0 **/*.py
 
   black:
     runs-on: ubuntu-latest
@@ -62,7 +62,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install Canals
         run: pip install .[dev]
