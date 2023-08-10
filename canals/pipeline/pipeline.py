@@ -10,8 +10,14 @@ from copy import deepcopy
 
 import networkx
 
-from canals.component import Component
-from canals.errors import PipelineConnectError, PipelineMaxLoops, PipelineRuntimeError, PipelineValidationError
+from canals.component import component, Component
+from canals.errors import (
+    PipelineError,
+    PipelineConnectError,
+    PipelineMaxLoops,
+    PipelineRuntimeError,
+    PipelineValidationError,
+)
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.sockets import InputSocket, OutputSocket
 from canals.pipeline.validation import _validate_pipeline_input
@@ -70,6 +76,95 @@ class Pipeline:
             and self._comparable_nodes_list(self.graph) == self._comparable_nodes_list(other.graph)
             and self.graph.graph == other.graph.graph
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Returns this Pipeline instance as a dictionary.
+        This is meant to be an intermediate representation but it can be also used to save a pipeline to file.
+        """
+        components = {name: instance.to_dict() for name, instance in self.graph.nodes(data="instance")}
+        connections = []
+        for sender, receiver, sockets in self.graph.edges:
+            (sender_socket, receiver_socket) = sockets.split("/")
+            connections.append(
+                {
+                    "sender": f"{sender}.{sender_socket}",
+                    "receiver": f"{receiver}.{receiver_socket}",
+                }
+            )
+        return {
+            "metadata": self.metadata,
+            "max_loops_allowed": self.max_loops_allowed,
+            "components": components,
+            "connections": connections,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], **kwargs) -> "Pipeline":
+        """
+        Creates a Pipeline instance from a dictionary.
+        A sample `data` dictionary could be formatted like so:
+        ```
+        {
+            "metadata": {"test": "test"},
+            "max_loops_allowed": 100,
+            "components": {
+                "add_two": {
+                    "type": "AddFixedValue",
+                    "hash": "123",
+                    "init_parameters": {"add": 2},
+                },
+                "add_default": {
+                    "type": "AddFixedValue",
+                    "hash": "456",
+                    "init_parameters": {},
+                },
+                "double": {
+                    "type": "Double",
+                    "hash": "789",
+                    "init_parameters": {},
+                },
+            },
+            "connections": [
+                {"sender": "add_two.result", "receiver": "double.value"},
+                {"sender": "double.value", "receiver": "add_default.value"},
+            ],
+        }
+        ```
+
+        Supported kwargs:
+        `components`: a dictionary of {name: instance} to reuse instances of components instead of creating new ones.
+        """
+        metadata = data.get("metadata", {})
+        max_loops_allowed = data.get("max_loops_allowed", 100)
+        debug_path = Path(data.get("debug_path", ".canals_debug/"))
+        pipe = cls(
+            metadata=metadata,
+            max_loops_allowed=max_loops_allowed,
+            debug_path=debug_path,
+        )
+        components_to_reuse = kwargs.get("components", {})
+        for name, component_data in data.get("components", {}).items():
+            if name in components_to_reuse:
+                # Reuse an instance
+                instance = components_to_reuse[name]
+            else:
+                if "type" not in component_data:
+                    raise PipelineError(f"Missing 'type' in component '{name}'")
+                if component_data["type"] not in component.registry:
+                    raise PipelineError(f"Component '{component_data['type']}' not imported.")
+                # Create a new one
+                instance = component.registry[component_data["type"]].from_dict(component_data)
+            pipe.add_component(name=name, instance=instance)
+
+        for connection in data.get("connections", []):
+            if "sender" not in connection:
+                raise PipelineError(f"Missing sender in connection: {connection}")
+            if "receiver" not in connection:
+                raise PipelineError(f"Missing receiver in connection: {connection}")
+            pipe.connect(connect_from=connection["sender"], connect_to=connection["receiver"])
+
+        return pipe
 
     def _comparable_nodes_list(self, graph: networkx.MultiDiGraph) -> List[Dict[str, Any]]:
         """
@@ -312,56 +407,56 @@ class Pipeline:
         These tuples are used by `_state_transition_function()` with `issubset()` to compute the next transition.
         """
         self.valid_states = {}
-        for component in self.graph.nodes:
-            input_from_loop, input_outside_loop = self._identify_looping_inputs(component)
+        for component_name in self.graph.nodes:
+            input_from_loop, input_outside_loop = self._identify_looping_inputs(component_name)
             if input_from_loop and input_outside_loop:
                 # Is a loop merger, so it has two valid states, one for the loop and one for the external input
-                self.valid_states[component] = [
-                    [(component, socket) for socket in input_from_loop],
-                    [(component, socket) for socket in input_outside_loop],
+                self.valid_states[component_name] = [
+                    [(component_name, socket) for socket in input_from_loop],
+                    [(component_name, socket) for socket in input_outside_loop],
                 ]
                 continue
 
             # If all inputs are optional, each one is enough to make the pipeline run
-            if all(socket.is_optional for socket in self.graph.nodes[component]["input_sockets"].values()):
-                self.valid_states[component] = [
-                    [(component, socket)] for socket in self.graph.nodes[component]["input_sockets"].keys()
+            if all(socket.is_optional for socket in self.graph.nodes[component_name]["input_sockets"].values()):
+                self.valid_states[component_name] = [
+                    [(component_name, socket)] for socket in self.graph.nodes[component_name]["input_sockets"].keys()
                 ]
                 continue
 
             # It's a regular component, so it has one minimum valid state only
             valid_state = []
-            for socket_name, socket in self.graph.nodes[component]["input_sockets"].items():
+            for socket_name, socket in self.graph.nodes[component_name]["input_sockets"].items():
                 if not socket.is_optional:
-                    valid_state.append((component, socket_name))
+                    valid_state.append((component_name, socket_name))
 
-            self.valid_states[component] = [valid_state]
+            self.valid_states[component_name] = [valid_state]
 
-    def _identify_looping_inputs(self, component: str):
+    def _identify_looping_inputs(self, component_name: str):
         """
         Identify which of the input sockets of this component are coming from a loop and which are not.
         """
         input_from_loop = []
         input_outside_loop = []
 
-        for socket in self.graph.nodes[component]["input_sockets"]:
-            sender = self.graph.nodes[component]["input_sockets"][socket].sender
-            if sender and networkx.has_path(self.graph, component, sender):
+        for socket in self.graph.nodes[component_name]["input_sockets"]:
+            sender = self.graph.nodes[component_name]["input_sockets"][socket].sender
+            if sender and networkx.has_path(self.graph, component_name, sender):
                 input_from_loop.append(socket)
             else:
                 input_outside_loop.append(socket)
         return input_from_loop, input_outside_loop
 
-    def _identify_looping_outputs(self, component: str):
+    def _identify_looping_outputs(self, component_name: str):
         """
         Identify which of the output sockets of this component are going into a loop and which are not.
         """
         output_to_loop = []
         output_outside_loop = []
 
-        for socket in self.graph.nodes[component]["output_sockets"]:
-            for _, to_node, _ in self.graph.out_edges(component, keys=True):
-                if to_node and networkx.has_path(self.graph, to_node, component):
+        for socket in self.graph.nodes[component_name]["output_sockets"]:
+            for _, to_node, _ in self.graph.out_edges(component_name, keys=True):
+                if to_node and networkx.has_path(self.graph, to_node, component_name):
                     output_to_loop.append(socket)
                 else:
                     output_outside_loop.append(socket)
@@ -377,10 +472,10 @@ class Pipeline:
             current_state (Tuple[Tuple[str, str]]): the current state as a list of tuples of (component, socket)
         """
         transition = []
-        for component in self.graph.nodes:
-            for valid_state in self.valid_states[component]:
+        for component_name in self.graph.nodes:
+            for valid_state in self.valid_states[component_name]:
                 if set(valid_state).issubset(set(state)):
-                    transition.append(component)
+                    transition.append(component_name)
 
         return transition
 
@@ -418,10 +513,10 @@ class Pipeline:
 
         # Initial state
         state: Dict[Tuple[str, str], Any] = {}
-        for component, input_data in data.items():
+        for component_name, input_data in data.items():
             for socket, value in input_data.items():
                 if value is not None:
-                    state[(component, socket)] = value
+                    state[(component_name, socket)] = value
 
         # Execution loop
         step = 0
@@ -463,18 +558,18 @@ class Pipeline:
         next_state = state
 
         # Process all the component in this transition independently ("parallel branch execution")
-        for component in transition:
+        for component_name in transition:
             # Extract from the general state only the inputs for this component
-            component_inputs = {state[1]: value for state, value in state.items() if state[0] == component}
+            component_inputs = {state[1]: value for state, value in state.items() if state[0] == component_name}
 
             # Once an input is being used, remove it from the machine's state.
             # Leftover state will be carried over ("waiting for components")
             for used_input in component_inputs.keys():
-                del next_state[(component, used_input)]
+                del next_state[(component_name, used_input)]
 
             # Run the component
             output_values = self._run_component(
-                name=component,
+                name=component_name,
                 inputs=component_inputs,
             )
 
@@ -483,19 +578,19 @@ class Pipeline:
                 target_states = [
                     (to_node, to_socket)
                     for from_node, from_socket, to_node, to_socket in connections
-                    if from_node == component and from_socket == socket
+                    if from_node == component_name and from_socket == socket
                 ]
 
                 # If the sockets are dangling, this value is an output
                 if not target_states:
-                    if component not in output:
-                        output[component] = {}
-                    output[component][socket] = value
-                    logger.debug(" - '%s.%s' goes to the output with value '%s'", component, socket, value)
+                    if component_name not in output:
+                        output[component_name] = {}
+                    output[component_name][socket] = value
+                    logger.debug(" - '%s.%s' goes to the output with value '%s'", component_name, socket, value)
 
                 # Otherwise, assign the values to the next state
                 for target in target_states:
-                    if all(self._identify_looping_outputs(component)) and value is None:
+                    if all(self._identify_looping_outputs(component_name)) and value is None:
                         logger.debug("   --X Loop decision nodes do not propagate None values.")
                     else:
                         next_state[target] = value
