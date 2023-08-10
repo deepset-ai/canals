@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 @component
-class A:
+class SelfLoopingComponent:
     @component.output_types(goal=int, current=int, final_result=int)
     def run(self, initial_goal: Optional[int] = None, goal: Optional[int] = None, current: Optional[int] = None):
         if initial_goal:
@@ -25,7 +25,7 @@ class A:
 
 
 @component
-class B:
+class Worker:
     @component.output_types(y=int)
     def run(self, x: int):
         return {"y": x + 1}
@@ -33,16 +33,18 @@ class B:
 
 def test_pipeline(tmp_path):
     pipeline = Pipeline()
-    pipeline.add_component("a", A())
-    pipeline.add_component("b", B())
-    pipeline.connect("a.current", "b.x")
-    pipeline.connect("b.y", "a.current")
-    pipeline.connect("a.goal", "a.goal")
+    pipeline.add_component("self_loop", SelfLoopingComponent())
+    pipeline.add_component("worker", Worker())
+    pipeline.connect("self_loop.current", "worker.x")
+    pipeline.connect("worker.y", "self_loop.current")
+    pipeline.connect("self_loop.goal", "self_loop.goal")
 
     pipeline.draw(tmp_path / "self_looping_pipeline.png")
 
-    results = pipeline.run({"a": {"initial_goal": 5, "current": 0}})
+    results = pipeline.run({"self_loop": {"initial_goal": 5, "current": 0}})
     pprint(results)
+
+    assert results["self_loop"]["final_result"] == 5
 
 
 if __name__ == "__main__":
