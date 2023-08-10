@@ -169,7 +169,8 @@ class _Component:
 
         # Store the input types in the run method
         wrapper.__canals_input__ = {
-            name: {"name": name, "type": type_, "is_optional": _is_optional(type_)} for name, type_ in types.items()
+            name: {"name": name, "type": type_, "is_optional": _is_optional(type_), "has_default": False}
+            for name, type_ in types.items()
         }
         wrapper.__canals_output__ = getattr(run_method, "__canals_output__", {})
 
@@ -258,6 +259,7 @@ class _Component:
                 "name": param,
                 "type": run_signature.parameters[param].annotation,
                 "is_optional": _is_optional(run_signature.parameters[param].annotation),
+                "has_default": run_signature.parameters[param].default != inspect.Parameter.empty,
             }
             for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
         }

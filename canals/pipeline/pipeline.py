@@ -417,17 +417,10 @@ class Pipeline:
                 ]
                 continue
 
-            # If all inputs are optional, each one is enough to make the pipeline run
-            if all(socket.is_optional for socket in self.graph.nodes[component_name]["input_sockets"].values()):
-                self.valid_states[component_name] = [
-                    [(component_name, socket)] for socket in self.graph.nodes[component_name]["input_sockets"].keys()
-                ]
-                continue
-
             # It's a regular component, so it has one minimum valid state only
             valid_state = []
             for socket_name, socket in self.graph.nodes[component_name]["input_sockets"].items():
-                if not socket.is_optional:
+                if not socket.has_default:
                     valid_state.append((component_name, socket_name))
 
             self.valid_states[component_name] = [valid_state]
@@ -612,10 +605,11 @@ class Pipeline:
             # Check if any None was received by a value that was not Optional:
             # if so, return an empty output dataclass ("skipping the component")
             if all(value is None for value in inputs.values()) or any(
-                value is None and socket not in instance.__canals_optional_inputs__ for socket, value in inputs.items()
+                value is None and not self.graph.nodes[name]["input_sockets"][socket_name].is_optional
+                for socket_name, value in inputs.items()
             ):
-                logger.debug("   --X '%s' received None on a mandatory input or on all inputs: skipping.", name)
-                output_dict: Dict[str, Any] = {}
+                logger.debug("   --X '%s' received None on a mandatory input: skipping.", name)
+                output_dict: Dict[str, Any] = {key: None for key in self.graph.nodes[name]["output_sockets"].keys()}
                 logger.debug("   '%s' outputs: %s", name, output_dict)
                 return output_dict
 

@@ -14,6 +14,7 @@ class InputSocket:
     name: str
     type: type
     is_optional: bool
+    has_default: bool
     sender: Optional[str] = None
 
 

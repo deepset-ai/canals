@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 def test_pipeline(tmp_path):
-    pipeline = Pipeline()
+    pipeline = Pipeline(max_loops_allowed=3)
     pipeline.add_component("add_one", AddFixedValue())
     pipeline.add_component("parity", Remainder(divisor=2))
     pipeline.add_component("add_ten", AddFixedValue(add=10))
