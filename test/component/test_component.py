@@ -84,6 +84,7 @@ def test_set_input_types():
             "name": "value",
             "type": Any,
             "is_optional": False,
+            "has_default": False,
         }
     }
     assert comp.run() == {"value": 1}

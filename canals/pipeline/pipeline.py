@@ -472,7 +472,7 @@ class Pipeline:
 
         return transition
 
-    def run(self, data: Dict[str, Any], debug: bool = False) -> Dict[str, Any]:
+    def run(self, data: Dict[str, Any], debug: bool = False) -> Dict[str, Any]:  # pylint: disable=too-many-locals
         """
         Runs the pipeline.
 
@@ -534,12 +534,12 @@ class Pipeline:
         logger.info("Pipeline executed successfully.")
 
         # Clean up output dictionary from None values
-        # clean_output = {}
-        # for component, outputs in pipeline_output.items():
-        #     if not all(value is None for value in outputs.values()):
-        #         clean_output[component] = self.graph.nodes[component]["instance"].output(**outputs)
+        clean_output = {}
+        for component_name, outputs in pipeline_output.items():
+            if not all(value is None for value in outputs.values()):
+                clean_output[component_name] = {key: value for key, value in outputs.items() if value is not None}
 
-        return pipeline_output
+        return clean_output
 
     def _apply_transition(
         self, state: Dict[Tuple[str, str], Any], transition: List[str], connections: List[Tuple[str, str, str, str]]
