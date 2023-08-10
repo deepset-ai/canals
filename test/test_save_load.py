@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-import pytest
-
-from canals import Pipeline, marshal_pipelines, unmarshal_pipelines
-from sample_components import AddFixedValue, Double
+# pylint: disable=missing-function-docstring
 
 import logging
+import pytest
+from canals import Pipeline, marshal_pipelines, unmarshal_pipelines
+from sample_components import AddFixedValue, Double
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -120,21 +120,21 @@ def test_unmarshal():
     assert pipe1.metadata == {"type": "test pipeline", "author": "me"}
 
     first_addition = pipe1.get_component("first_addition")
-    assert type(first_addition) == AddFixedValue
+    assert isinstance(first_addition, AddFixedValue)
     assert pipe1.graph.nodes["first_addition"]["instance"].add == 300
 
     second_addition = pipe1.get_component("second_addition")
-    assert type(second_addition) == AddFixedValue
+    assert isinstance(second_addition, AddFixedValue)
     assert pipe1.graph.nodes["second_addition"]["instance"].add == 1
     assert second_addition != first_addition
 
     third_addition = pipe1.get_component("third_addition")
-    assert type(third_addition) == AddFixedValue
+    assert isinstance(third_addition, AddFixedValue)
     assert pipe1.graph.nodes["third_addition"]["instance"].add == 300
     assert third_addition == first_addition
 
     double = pipe1.get_component("double")
-    assert type(double) == Double
+    assert isinstance(double, Double)
 
     assert list(pipe1.graph.edges) == [
         ("first_addition", "double", "result/value"),
@@ -146,12 +146,12 @@ def test_unmarshal():
     assert pipe2.metadata == {"type": "another test pipeline", "author": "you"}
 
     first_addition_2 = pipe2.get_component("first_addition")
-    assert type(first_addition_2) == AddFixedValue
+    assert isinstance(first_addition_2, AddFixedValue)
     assert pipe2.graph.nodes["first_addition"]["instance"].add == 300
     assert first_addition_2 == first_addition
 
     second_addition_2 = pipe2.get_component("second_addition")
-    assert type(second_addition_2) == AddFixedValue
+    assert isinstance(second_addition_2, AddFixedValue)
     assert pipe2.graph.nodes["second_addition"]["instance"].add == 1
     assert second_addition_2 != first_addition_2
     assert second_addition_2 == second_addition
@@ -160,7 +160,7 @@ def test_unmarshal():
         pipe2.get_component("third_addition")
 
     double_2 = pipe2.get_component("double")
-    assert type(double_2) == Double
+    assert isinstance(double_2, Double)
     assert double_2 != double
 
     assert list(pipe2.graph.edges) == [

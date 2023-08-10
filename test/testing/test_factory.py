@@ -1,7 +1,9 @@
-import pytest
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
 
 from canals import component
-from canals.errors import ComponentError
 from canals.testing import factory
 
 

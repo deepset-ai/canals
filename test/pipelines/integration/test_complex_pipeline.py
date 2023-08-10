@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
+
 from pathlib import Path
 from pprint import pprint
 import logging
@@ -22,7 +24,7 @@ from sample_components import (
 logging.basicConfig(level=logging.DEBUG)
 
 
-def test_complex_pipeline(tmp_path):
+def test_complex_pipeline(tmp_path):  # pylint: disable=too-many-statements
     accumulate = Accumulate()
     loop_merger = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
     summer = Sum(inputs=["in_1", "in_2", "in_3"])

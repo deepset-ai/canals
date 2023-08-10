@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
+
 from pathlib import Path
 from pprint import pprint
+import logging
 
 from canals.pipeline import Pipeline
 from sample_components import AddFixedValue, Sum
-
-import logging
 
 logging.basicConfig(level=logging.DEBUG)
 

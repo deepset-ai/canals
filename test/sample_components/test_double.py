@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
 
 from canals.testing import BaseTestComponent
 from sample_components import Double
@@ -14,4 +15,4 @@ class TestDouble(BaseTestComponent):
         component = Double()
         results = component.run(value=10)
         assert results == {"value": 20}
-        assert component.init_parameters == {}
+        assert component.init_parameters == {}  # pylint: disable=no-member

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
+
 import os
 import sys
 import filecmp
@@ -71,9 +73,11 @@ def test_draw_mermaid_txt(tmp_path):
 
     _draw(pipe.graph, tmp_path / "test_pipe.md", engine="mermaid-text")
     assert os.path.exists(tmp_path / "test_pipe.md")
-    assert (
-        open(tmp_path / "test_pipe.md", "r").read()
-        == """
+
+    with open(tmp_path / "test_pipe.md", "r", encoding="utf-8") as test_pipe:
+        assert (
+            test_pipe.read()
+            == """
 %%{ init: {'theme': 'neutral' } }%%
 
 stateDiagram-v2
@@ -91,7 +95,7 @@ comp2 --> comp1 : value -> value  <small><i>(int)</i></small>
 
 classDef components text-align:center;
 """
-    )
+        )
 
 
 def test_draw_unknown_engine(tmp_path):
@@ -105,7 +109,7 @@ def test_draw_unknown_engine(tmp_path):
         _draw(pipe.graph, tmp_path / "test_pipe.jpg", engine="unknown")
 
 
-def test_convert_unknown_engine(tmp_path):
+def test_convert_unknown_engine():
     pipe = Pipeline()
     pipe.add_component("comp1", Double())
     pipe.add_component("comp2", Double())

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
+
 from typing import List, Set, Sequence, Tuple, Dict, Mapping, Literal, Union, Optional, Any
 from enum import Enum
 import re
@@ -14,15 +16,15 @@ from canals.testing import factory
 from sample_components import AddFixedValue
 
 
-class TestClass1:
+class TestClass1:  # pylint:  disable=too-few-public-methods
     ...
 
 
-class TestClass2:
+class TestClass2:  # pylint:  disable=too-few-public-methods
     ...
 
 
-class TestClass3(TestClass1):
+class TestClass3(TestClass1):  # pylint:  disable=too-few-public-methods
     ...
 
 
@@ -379,15 +381,15 @@ def test_connect_many_outputs_to_the_same_input():
 
 def test_connect_many_connections_possible_name_matches():
     @component
-    class Component1:
+    class Component1:  # pylint:  disable=too-few-public-methods
         @component.output_types(value=str)
         def run(self, value: str):
             return {"value": value}
 
     @component
-    class Component2:
+    class Component2:  # pylint:  disable=too-few-public-methods
         @component.output_types(value=str)
-        def run(self, value: str, othervalue: str, yetanothervalue: str):
+        def run(self, value: str, othervalue: str, yetanothervalue: str):  # pylint:  disable=unused-argument
             return {"value": value}
 
     pipe = Pipeline()
@@ -399,15 +401,15 @@ def test_connect_many_connections_possible_name_matches():
 
 def test_connect_many_connections_possible_no_name_matches():
     @component
-    class Component1:
+    class Component1:  # pylint:  disable=too-few-public-methods
         @component.output_types(value=str)
         def run(self, value: str):
             return {"value": value}
 
     @component
-    class Component2:
+    class Component2:  # pylint:  disable=too-few-public-methods
         @component.output_types(value=str)
-        def run(self, value1: str, value2: str, value3: str):
+        def run(self, value1: str, value2: str, value3: str):  # pylint:  disable=unused-argument
             return {"value": value1}
 
     expected_message = re.escape(

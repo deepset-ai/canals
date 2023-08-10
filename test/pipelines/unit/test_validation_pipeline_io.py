@@ -1,8 +1,10 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
+
 from typing import Optional
-
 import pytest
-import inspect
-
 from canals.pipeline import Pipeline
 from canals.errors import PipelineValidationError
 from canals.pipeline.sockets import InputSocket, OutputSocket
@@ -145,7 +147,7 @@ def test_validate_pipeline_input_unknown_component():
     pipe.add_component("comp1", Double())
     pipe.add_component("comp2", Double())
     pipe.connect("comp1", "comp2")
-    with pytest.raises(ValueError, match="Pipeline received data for unknown component\(s\): test_component"):
+    with pytest.raises(ValueError, match=r"Pipeline received data for unknown component\(s\): test_component"):
         pipe.run({"test_component": {"value": 1}})
 
 

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
 from canals.testing import BaseTestComponent
 from sample_components import Subtract
 
@@ -13,4 +14,4 @@ class TestSubtract(BaseTestComponent):
         component = Subtract()
         results = component.run(first_value=10, second_value=7)
         assert results == {"difference": 3}
-        assert component.init_parameters == {}
+        assert component.init_parameters == {}  # pylint: disable=no-member

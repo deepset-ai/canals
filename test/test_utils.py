@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
+
 from typing import List, Set, Sequence, Tuple, Dict, Mapping, Literal, Union, Optional, Any
 from enum import Enum
 from pathlib import Path
@@ -7,15 +12,15 @@ import pytest
 from canals.utils import _type_name
 
 
-class TestClass1:
+class TestClass1:  # pylint:  disable=too-few-public-methods
     ...
 
 
-class TestClass2:
+class TestClass2:  # pylint:  disable=too-few-public-methods
     ...
 
 
-class TestClass3(TestClass1):
+class TestClass3(TestClass1):  # pylint:  disable=too-few-public-methods
     ...
 
 
@@ -25,7 +30,7 @@ class TestEnum(Enum):
 
 
 @pytest.mark.parametrize(
-    "type_,repr",
+    "type_,representation",
     [
         pytest.param(str, "str", id="primitive-types"),
         pytest.param(Any, "Any", id="any"),
@@ -89,5 +94,5 @@ class TestEnum(Enum):
         ),
     ],
 )
-def test_type_name(type_, repr):
-    assert _type_name(type_) == repr
+def test_type_name(type_, representation):
+    assert _type_name(type_) == representation

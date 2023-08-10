@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
+
 import logging
 from pathlib import Path
 from pprint import pprint
@@ -39,9 +41,7 @@ def test_pipeline(tmp_path):
     )
     pprint(results)
 
-    results == {
-        "add_two": {"result": 8},
-    }
+    assert results == {"add_two": {"result": 8}}
 
     results = pipeline.run(
         {
@@ -51,9 +51,7 @@ def test_pipeline(tmp_path):
     )
     pprint(results)
 
-    results == {
-        "diff": {"difference": 7},
-    }
+    assert results == {"diff": {"difference": 7}}
 
 
 if __name__ == "__main__":

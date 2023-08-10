@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=missing-function-docstring
 from canals.testing import BaseTestComponent
 from sample_components import Repeat
 
@@ -13,4 +14,4 @@ class TestRepeat(BaseTestComponent):
         component = Repeat(outputs=["one", "two"])
         results = component.run(value=10)
         assert results == {"one": 10, "two": 10}
-        assert component.init_parameters == {"outputs": ["one", "two"]}
+        assert component.init_parameters == {"outputs": ["one", "two"]}  # pylint: disable=no-member
