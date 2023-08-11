@@ -26,7 +26,7 @@ class SelfLoopingComponent:
 
 @component
 class Worker:
-    @component.output_types(y=int)
+    @component.output_types(output=int)
     def run(self, input: int):
         return {"output": input + 1}
 
