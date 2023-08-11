@@ -10,6 +10,7 @@ from canals import component
 class Sum:  # pylint: disable=too-few-public-methods
     def __init__(self, inputs, base_value: int = 0):
         self.base_value = base_value
+        self.init_parameters = {"inputs": inputs, "base_value": base_value}
         component.set_input_types(self, **{input_name: Optional[int] for input_name in inputs})
 
     @component.output_types(total=int)

@@ -117,12 +117,11 @@ class Pipeline:
                 "add_default": {
                     "type": "AddFixedValue",
                     "hash": "456",
-                    "init_parameters": {},
+                    "init_parameters": {"add": 1},
                 },
                 "double": {
                     "type": "Double",
-                    "hash": "789",
-                    "init_parameters": {},
+                    "hash": "789"
                 },
             },
             "connections": [

@@ -14,7 +14,7 @@ class TestSum(BaseTestComponent):
         component = Sum(inputs=[])
         results = component.run()
         assert results == {"total": 0}
-        assert component.init_parameters == {"inputs": []}
+        assert component.init_parameters == {"inputs": [], "base_value": 0}
 
     def test_sum_expects_no_values_receives_one_value(self):
         component = Sum(inputs=[])
@@ -24,7 +24,7 @@ class TestSum(BaseTestComponent):
         component = Sum(inputs=["value_1"])
         results = component.run(value_1=10)
         assert results == {"total": 10}
-        assert component.init_parameters == {"inputs": ["value_1"]}
+        assert component.init_parameters == {"inputs": ["value_1"], "base_value": 0}
 
     def test_sum_expects_one_value_receives_wrong_value(self):
         component = Sum(inputs=["value_1"])
@@ -38,7 +38,7 @@ class TestSum(BaseTestComponent):
         component = Sum(inputs=["value_1", "value_2", "value_3"])
         results = component.run(value_1=10, value_2=11, value_3=12)
         assert results == {"total": 33}
-        assert component.init_parameters == {"inputs": ["value_1", "value_2", "value_3"]}
+        assert component.init_parameters == {"inputs": ["value_1", "value_2", "value_3"], "base_value": 0}
 
     def test_sum_expects_few_values_receives_some_wrong_values(self):
         component = Sum(inputs=["value_1", "value_2", "value_3"])
