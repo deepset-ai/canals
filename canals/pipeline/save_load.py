@@ -214,6 +214,15 @@ def unmarshal_pipelines(data: Dict[str, Any]) -> Dict[str, Pipeline]:
     Returns:
         The pipelines as a dictionary of `{"pipeline-name": <pipeline object>}`.
     """
+    components = _unmarshal_components(data)
+    pipelines = _unmarshal_pipelines(data, components)
+    return pipelines
+
+
+def _unmarshal_components(data: Dict[str, Any]) -> Dict[str, Component]:
+    """
+    Loads the components from the given Pipeline data
+    """
 
     components: Dict[str, Component] = {}
     # Create a mapping of component names and component instances
@@ -224,7 +233,13 @@ def unmarshal_pipelines(data: Dict[str, Any]) -> Dict[str, Pipeline]:
             continue
         component_class = component.registry[comp_data["type"]]
         components[name] = component_class.from_dict(comp_data)
+    return components
 
+
+def _unmarshal_pipelines(data: Dict[str, Any], components: Dict[str, Component]) -> Dict[str, Pipeline]:
+    """
+    Loads the Pipelines, given the data and the components already loaded
+    """
     pipelines = {}
     for name, pipe_data in data["pipelines"].items():
         # Add back the components as empty dicts.
