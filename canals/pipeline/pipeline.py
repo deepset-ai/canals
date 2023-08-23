@@ -111,17 +111,14 @@ class Pipeline:
             "components": {
                 "add_two": {
                     "type": "AddFixedValue",
-                    "hash": "123",
                     "init_parameters": {"add": 2},
                 },
                 "add_default": {
                     "type": "AddFixedValue",
-                    "hash": "456",
                     "init_parameters": {"add": 1},
                 },
                 "double": {
                     "type": "Double",
-                    "hash": "789"
                 },
             },
             "connections": [
@@ -167,13 +164,11 @@ class Pipeline:
 
     def _comparable_nodes_list(self, graph: networkx.MultiDiGraph) -> List[Dict[str, Any]]:
         """
-        Replaces instances of nodes with their class name and defaults list in order to make sure they're comparable.
+        Replaces instances of nodes with their class name in order to make sure they're comparable.
         """
         nodes = []
         for node in graph.nodes:
             comparable_node = graph.nodes[node]
-            if hasattr(comparable_node, "defaults"):
-                comparable_node["defaults"] = comparable_node["instance"].defaults
             comparable_node["instance"] = comparable_node["instance"].__class__
             nodes.append(comparable_node)
         nodes.sort()
@@ -615,7 +610,7 @@ class Pipeline:
             output_dict = instance.run(**inputs)
 
             # Unwrap the output
-            logger.debug("   '%s' outputs: %s", name, output_dict)
+            logger.debug("   '%s' outputs: %s", name, outputs)
 
         except Exception as e:
             raise PipelineRuntimeError(
@@ -623,4 +618,4 @@ class Pipeline:
                 "See the stacktrace above for more information."
             ) from e
 
-        return output_dict
+        return outputs
