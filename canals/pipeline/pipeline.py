@@ -87,11 +87,7 @@ class Pipeline:
         """
         components = {}
         for name, instance in self.graph.nodes(data="instance"):
-            if hasattr(instance, "to_dict"):
-                instance_dict = instance.to_dict()
-            else:
-                instance_dict = component_to_dict(instance)
-            components[name] = instance_dict
+            components[name] = component_to_dict(instance)
 
         connections = []
         for sender, receiver, sockets in self.graph.edges:
@@ -161,10 +157,7 @@ class Pipeline:
                     raise PipelineError(f"Component '{component_data['type']}' not imported.")
                 # Create a new one
                 component_class = component.registry[component_data["type"]]
-                if hasattr(component_class, "from_dict"):
-                    instance = component_class.from_dict(component_data)
-                else:
-                    instance = component_from_dict(component_class, component_data)
+                instance = component_from_dict(component_class, component_data)
             pipe.add_component(name=name, instance=instance)
 
         for connection in data.get("connections", []):
