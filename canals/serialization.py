@@ -6,6 +6,15 @@ from typing import Type, Dict, Any
 from canals.errors import DeserializationError
 
 
+def component_to_dict(obj: Any) -> Dict[str, Any]:
+    obj_attrs = [attr for attr in dir(obj) if not attr.startswith("_")]
+    return default_to_dict(obj, **obj_attrs)
+
+
+def component_from_dict(cls: Type[object], data: Dict[str, Any]) -> Any:
+    return default_from_dict(cls, data)
+
+
 def default_to_dict(obj: Any, **init_parameters) -> Dict[str, Any]:
     """
     Utility function to serialize an object to a dictionary.
