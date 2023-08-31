@@ -729,6 +729,12 @@ class Pipeline:
             # Unwrap the output
             logger.debug("   '%s' outputs: %s\n", name, outputs)
 
+            if not isinstance(outputs, dict):
+                raise PipelineRuntimeError(
+                    "Component '' did not return a dictionary. "
+                    "Components must always return dictionaries: check the the documentation."
+                )
+
         except Exception as e:
             raise PipelineRuntimeError(
                 f"{name} raised '{e.__class__.__name__}: {e}' \nInputs: {inputs}\n\n"
