@@ -729,9 +729,11 @@ class Pipeline:
             # Unwrap the output
             logger.debug("   '%s' outputs: %s\n", name, outputs)
 
+            # Make sure the component returned a dictionary
             if not isinstance(outputs, dict):
                 raise PipelineRuntimeError(
-                    "Component '' did not return a dictionary. "
+                    f"Component '{name}' returned a value of type "
+                    f"'{getattr(type(outputs), '__name__', str(type(outputs)))}' instead of a dict. "
                     "Components must always return dictionaries: check the the documentation."
                 )
 

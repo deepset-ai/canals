@@ -6,9 +6,9 @@ import logging
 
 import pytest
 
-from canals import Pipeline
+from canals import Pipeline, component
 from canals.pipeline.sockets import InputSocket, OutputSocket
-from canals.errors import PipelineMaxLoops, PipelineError
+from canals.errors import PipelineMaxLoops, PipelineError, PipelineRuntimeError
 from sample_components import AddFixedValue, Threshold, MergeLoop, Double
 from canals.testing.factory import component_class
 
@@ -25,6 +25,27 @@ def test_max_loops():
     pipe.connect("merge.value", "threshold.value")
     with pytest.raises(PipelineMaxLoops):
         pipe.run({"merge": {"value_2": 1}})
+
+
+def test_run_with_component_that_does_not_return_dict():
+    @component
+    class BrokenComponent:
+        def run(self, a: int):
+            return 1
+
+        def to_dict(self):
+            return {}
+
+        @classmethod
+        def from_dict(cls, data):
+            return cls()
+
+    pipe = Pipeline(max_loops_allowed=10)
+    pipe.add_component("comp", BrokenComponent())
+    with pytest.raises(
+        PipelineRuntimeError, match="Component 'comp' returned a value of type 'int' instead of a dict."
+    ):
+        pipe.run({"comp": {"a": 1}})
 
 
 def test_to_dict():
