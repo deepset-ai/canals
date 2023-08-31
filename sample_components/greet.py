@@ -31,13 +31,6 @@ class Greet:
         self.message = message
         self.log_level = log_level
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self, message=self.message, log_level=self.log_level)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Greet":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     @component.output_types(value=int)
     def run(self, value: int, message: Optional[str] = None, log_level: Optional[str] = None):
         """
