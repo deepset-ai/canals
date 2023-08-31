@@ -607,7 +607,7 @@ class Pipeline:
                 logger.debug("   '%s' outputs: %s", name, output_dict)
                 return output_dict
 
-            output_dict = instance.run(**inputs)
+            outputs = instance.run(**inputs)
 
             # Unwrap the output
             logger.debug("   '%s' outputs: %s", name, outputs)

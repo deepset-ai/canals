@@ -8,15 +8,15 @@ from sample_components import Sum
 def test_to_dict():
     component = Sum(inputs=["first", "second"])
     res = component.to_dict()
-    assert res == {"type": "Sum", "init_parameters": {"inputs": ["first", "second"]}}
+    assert res == {"type": "Sum", "init_parameters": {"base_value": 0, "inputs": ["first", "second"]}}
 
-    
+
 def test_from_dict():
     data = {"type": "Sum", "init_parameters": {"inputs": ["first", "second"]}}
     component = Sum.from_dict(data)
     assert component.inputs == ["first", "second"]
 
-    
+
 def test_sum_expects_no_values_receives_no_values():
     component = Sum(inputs=[])
     results = component.run()
