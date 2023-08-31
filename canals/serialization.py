@@ -7,6 +7,10 @@ from canals.errors import DeserializationError
 
 
 def component_to_dict(obj: Any) -> Dict[str, Any]:
+    """
+    The marshaller used by the Pipeline. If a `to_dict` method is present in the
+    component instance, that will be used instead of the default method.
+    """
     if hasattr(obj, "to_dict"):
         return obj.to_dict()
 
@@ -14,6 +18,10 @@ def component_to_dict(obj: Any) -> Dict[str, Any]:
 
 
 def component_from_dict(cls: Type[object], data: Dict[str, Any]) -> Any:
+    """
+    The unmarshaller used by the Pipeline. If a `from_dict` method is present in the
+    component instance, that will be used instead of the default method.
+    """
     if hasattr(cls, "from_dict"):
         return cls.from_dict(data)
     return default_from_dict(cls, data)
