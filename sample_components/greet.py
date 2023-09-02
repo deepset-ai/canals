@@ -18,6 +18,7 @@ class Greet:
 
     def __init__(
         self,
+        foo: str,
         message: str = "\nGreeting component says: Hi! The value is {value}\n",
         log_level: str = "INFO",
     ):
