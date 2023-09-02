@@ -21,16 +21,16 @@ def component_to_dict(obj: Any) -> Dict[str, Any]:
             # This only works if the Component constructor assigns the init
             # parameter to an instance variable or property with the same name
             param_value = getattr(obj, name)
-        except AttributeError:
-            # In case the init parameter was not assigned, we use the default value
-            param_value = param.default
+        except AttributeError as e:
             # If the parameter doesn't have a default value, raise an error
-            if param_value == inspect._empty:
+            if param.empty:
                 raise SerializationError(
                     f"Cannot determined the value of the init parameter '{name}'. "
                     f"You can fix this error by assigning 'self.{name} = {name}' or adding a "
                     f"custom serialization method 'to_dict' to the class {obj.__class__.__name__}"
-                )
+                ) from e
+            # In case the init parameter was not assigned, we use the default value
+            param_value = param.default
         init_parameters[name] = param_value
 
     return default_to_dict(obj, **init_parameters)
