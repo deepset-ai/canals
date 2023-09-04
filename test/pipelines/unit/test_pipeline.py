@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from canals import Pipeline, component
+from canals import Pipeline
 from canals.pipeline.sockets import InputSocket, OutputSocket
 from canals.errors import PipelineMaxLoops, PipelineError, PipelineRuntimeError
 from sample_components import AddFixedValue, Threshold, MergeLoop, Double
