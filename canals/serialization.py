@@ -28,7 +28,7 @@ def component_to_dict(obj: Any) -> Dict[str, Any]:
             # If the parameter doesn't have a default value, raise an error
             if param.default is param.empty:
                 raise SerializationError(
-                    f"Cannot determined the value of the init parameter '{name}' for the class {obj.__class__.__name__}."
+                    f"Cannot determine the value of the init parameter '{name}' for the class {obj.__class__.__name__}."
                     f"You can fix this error by assigning 'self.{name} = {name}' or adding a "
                     f"custom serialization method 'to_dict' to the class."
                 ) from e
