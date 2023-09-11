@@ -22,13 +22,6 @@ class Threshold:  # pylint: disable=too-few-public-methods
         """
         self.threshold = threshold
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self, threshold=self.threshold)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Threshold":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     @component.output_types(above=int, below=int)
     def run(self, value: int, threshold: Optional[int] = None):
         """

@@ -13,13 +13,6 @@ class Repeat:
         self.outputs = outputs
         component.set_output_types(self, **{k: int for k in outputs})
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self, outputs=self.outputs)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Repeat":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     def run(self, value: int):
         """
         :param value: the value to repeat.

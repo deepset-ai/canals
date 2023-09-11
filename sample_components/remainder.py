@@ -15,13 +15,6 @@ class Remainder:
         self.divisor = divisor
         component.set_output_types(self, **{f"remainder_is_{val}": int for val in range(divisor)})
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self, divisor=self.divisor)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Remainder":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     def run(self, value: int):
         """
         :param value: the value to check the remainder of.

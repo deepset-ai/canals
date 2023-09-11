@@ -13,13 +13,6 @@ class Sum:
         self.inputs = inputs
         component.set_input_types(self, **{input_name: Optional[int] for input_name in inputs})
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self, inputs=self.inputs)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Sum":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     @component.output_types(total=int)
     def run(self, **kwargs):
         """

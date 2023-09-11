@@ -13,13 +13,6 @@ class Concatenate:
     Concatenates two values
     """
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Concatenate":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     @component.output_types(value=List[str])
     def run(self, first: Union[List[str], str], second: Union[List[str], str]):
         """

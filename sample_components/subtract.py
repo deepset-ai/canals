@@ -13,13 +13,6 @@ class Subtract:
     Compute the difference between two values.
     """
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Subtract":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     @component.output_types(difference=int)
     def run(self, first_value: int, second_value: int):
         """

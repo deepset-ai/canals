@@ -13,13 +13,6 @@ class Parity:  # pylint: disable=too-few-public-methods
     Redirects the value, unchanged, along the 'even' connection if even, or along the 'odd' one if odd.
     """
 
-    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(self)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Parity":  # pylint: disable=missing-function-docstring
-        return default_from_dict(cls, data)
-
     @component.output_types(even=int, odd=int)
     def run(self, value: int):
         """
