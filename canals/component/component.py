@@ -71,7 +71,6 @@
 import logging
 import inspect
 from typing import Protocol, Union, Dict, Any, get_origin, get_args
-from keyword import iskeyword
 from functools import wraps
 
 from canals.errors import ComponentError
@@ -93,17 +92,6 @@ class Component(Protocol):
         Inputs are defined explicitly by the run method's signature or with `component.set_input_types()` if dynamic.
         Outputs are defined by decorating the run method with `@component.output_types()`
         or with `component.set_output_types()` if dynamic.
-        """
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes the component to a dictionary.
-        """
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Component":
-        """
-        Deserializes the component from a dictionary.
         """
 
 
@@ -129,7 +117,6 @@ class _Component:
     def set_input_types(self, instance, **types):
         """
         Method that validates the input kwargs of the run method.
-        `types` names must be valid Python identifiers and must not clash with any keyword.
 
         Use as:
 
@@ -146,12 +133,6 @@ class _Component:
                 return {"output_1": kwargs["value_1"], "output_2": ""}
         ```
         """
-        for name in types:
-            if not _is_valid_socket_name(name):
-                raise ComponentError(
-                    f"Invalid socket name '{name}'. Socket names must be valid Python identifiers and must not clash with any keyword."
-                )
-
         run_method = instance.run
 
         def wrapper(**kwargs):
@@ -170,7 +151,6 @@ class _Component:
     def set_output_types(self, instance, **types):
         """
         Method that validates the output dictionary of the run method.
-        `types` names must be valid Python identifiers and must not clash with any keyword.
 
         Use as:
 
@@ -189,12 +169,6 @@ class _Component:
         if not types:
             return
 
-        for name in types:
-            if not _is_valid_socket_name(name):
-                raise ComponentError(
-                    f"Invalid socket name '{name}'. Socket names must be valid Python identifiers and must not clash with any keyword."
-                )
-
         run_method = instance.run
 
         def wrapper(*args, **kwargs):
@@ -210,7 +184,6 @@ class _Component:
     def output_types(self, **types):
         """
         Decorator factory that validates the output dictionary of the run method.
-        `types` names must be valid Python identifiers and must not clash with any keyword.
 
         Use as:
 
@@ -222,11 +195,6 @@ class _Component:
                 return {"output_1": 1, "output_2": "2"}
         ```
         """
-        for name in types:
-            if not _is_valid_socket_name(name):
-                raise ComponentError(
-                    f"Invalid socket name '{name}'. Socket names must be valid Python identifiers and must not clash with any keyword."
-                )
 
         def output_types_decorator(run_method):
             """
@@ -256,16 +224,6 @@ class _Component:
             raise ComponentError(f"{class_.__name__} must have a 'run()' method. See the docs for more information.")
         run_signature = inspect.signature(class_.run)
 
-        if not hasattr(class_, "to_dict"):
-            raise ComponentError(
-                f"{class_.__name__} must have a 'to_dict()' method. See the docs for more information."
-            )
-
-        if not hasattr(class_, "from_dict"):
-            raise ComponentError(
-                f"{class_.__name__} must have a 'from_dict()' method. See the docs for more information."
-            )
-
         # Create the input sockets
         class_.run.__canals_input__ = {
             param: {
@@ -279,7 +237,8 @@ class _Component:
 
         # Save the component in the class registry (for deserialization)
         if class_.__name__ in self.registry:
-            logger.error(
+            # It may occur easily in notebooks by re-running cells.
+            logger.debug(
                 "Component %s is already registered. Previous imported from '%s', new imported from '%s'",
                 class_.__name__,
                 self.registry[class_.__name__],
@@ -308,11 +267,3 @@ def _is_optional(type_: type) -> bool:
     Utility method that returns whether a type is Optional.
     """
     return get_origin(type_) is Union and type(None) in get_args(type_)
-
-
-def _is_valid_socket_name(name: str) -> bool:
-    """
-    Utility method that checks if a string a valid socket name.
-    Socket names must be valid Python identifiers and must clash with any keyword.
-    """
-    return name.isidentifier() and not iskeyword(name)
