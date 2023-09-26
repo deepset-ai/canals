@@ -70,9 +70,6 @@ def test_draw_mermaid_txt(tmp_path):
     pipe.connect("comp2.value", "comp1.value")
 
     _draw(pipe.graph, tmp_path / "test_pipe.md", engine="mermaid-text")
-
-    print(open(tmp_path / "test_pipe.md", "r").read())
-
     assert os.path.exists(tmp_path / "test_pipe.md")
     assert (
         open(tmp_path / "test_pipe.md", "r").read()
