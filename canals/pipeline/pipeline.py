@@ -193,6 +193,7 @@ class Pipeline:
         inputs = {
             comp: {socket.name: {"type": socket.type, "is_optional": socket.is_optional} for socket in data}
             for comp, data in _find_pipeline_inputs(self.graph).items()
+            if data
         }
         if log_level:
             level = logging.getLevelName(log_level)
