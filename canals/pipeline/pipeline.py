@@ -23,7 +23,7 @@ from canals.errors import (
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.sockets import InputSocket, OutputSocket
-from canals.pipeline.validation import _validate_pipeline_input
+from canals.pipeline.validation import _validate_pipeline_input, _find_pipeline_inputs
 from canals.pipeline.connections import _parse_connection_name, _find_unambiguous_connection
 from canals.utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
@@ -180,6 +180,30 @@ class Pipeline:
             nodes.append(comparable_node)
         nodes.sort()
         return nodes
+
+    def describe_input(self, log_level: str = "INFO"):
+        """
+        Returns a dictionary with the input names and types that this pipeline accepts.
+
+        if log_description is set, then outputs the description to the logger at the specified level.
+
+        :param log_description: the log level to use to output the pipeline description in a humanly-readable format.
+            if set to None, no log is produced.
+        """
+        inputs = {
+            comp: {socket.name: {"type": socket.type, "is_optional": socket.is_optional} for socket in data}
+            for comp, data in _find_pipeline_inputs(self.graph).items()
+        }
+        if log_level:
+            level = logging.getLevelName(log_level)
+            message = "This pipeline accepts the following inputs:\n"
+            for comp, sockets in inputs.items():
+                if sockets:
+                    message += f"- {comp}:\n"
+                    for name, socket in sockets.items():
+                        message += f"    - {name}: {_type_name(socket['type'])}\n"
+            logger.log(level=level, msg=message)
+        return inputs
 
     def add_component(self, name: str, instance: Component) -> None:
         """
