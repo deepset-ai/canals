@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Optional
+from typing import Optional, List
 import logging
 from dataclasses import dataclass
 
@@ -14,7 +14,7 @@ class InputSocket:
     name: str
     type: type
     is_optional: bool
-    sender: Optional[str] = None
+    sender: Optional[List[str]] = None
 
 
 @dataclass

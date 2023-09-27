@@ -297,13 +297,8 @@ class Pipeline:
         Directly connect socket to socket. This method does not type-check the connections: use 'Pipeline.connect()'
         instead (which uses 'find_unambiguous_connection()' to validate types).
         """
-        # Make sure the receiving socket isn't already connected - sending sockets can be connected as many times as needed,
-        # so they don't need this check
-        if to_socket.sender:
-            raise PipelineConnectError(
-                f"Cannot connect '{from_node}.{from_socket.name}' with '{to_node}.{to_socket.name}': "
-                f"{to_node}.{to_socket.name} is already connected to {to_socket.sender}.\n"
-            )
+        if to_socket.sender is None:
+            to_socket.sender = []
 
         # Create the connection
         logger.debug("Connecting '%s.%s' to '%s.%s'", from_node, from_socket.name, to_node, to_socket.name)
@@ -318,7 +313,7 @@ class Pipeline:
         )
 
         # Stores the name of the node that will send its output to this socket
-        to_socket.sender = from_node
+        to_socket.sender.append(from_node)
 
     def get_component(self, name: str) -> Component:
         """
@@ -794,6 +789,9 @@ class Pipeline:
 
                 value_to_route = node_results.get(from_socket.name, None)
                 if value_to_route is not None:
-                    inputs_buffer[target_node][to_socket.name] = value_to_route
+                    if to_socket.name not in inputs_buffer[target_node]:
+                        inputs_buffer[target_node][to_socket.name] = value_to_route
+                    else:
+                        inputs_buffer[target_node][to_socket.name] += value_to_route
 
         return inputs_buffer
