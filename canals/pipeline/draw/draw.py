@@ -14,13 +14,13 @@ from canals.pipeline.draw.mermaid import _to_mermaid_image, _to_mermaid_text
 from canals.utils import _type_name
 
 logger = logging.getLogger(__name__)
-RenderingEngines = Literal["graphviz", "mermaid-img", "mermaid-text"]
+RenderingEngines = Literal["graphviz", "mermaid-image", "mermaid-text"]
 
 
 def _draw(
     graph: networkx.MultiDiGraph,
     path: Path,
-    engine: RenderingEngines = "mermaid-img",
+    engine: RenderingEngines = "mermaid-image",
     style_map: Optional[Dict[str, str]] = None,
 ) -> None:
     """
@@ -31,7 +31,7 @@ def _draw(
     if engine == "graphviz":
         converted_graph.draw(path)
 
-    elif engine == "mermaid-img":
+    elif engine == "mermaid-image":
         with open(path, "wb") as imagefile:
             imagefile.write(converted_graph)
 
@@ -57,7 +57,7 @@ def _convert_for_debug(
 
 def _convert(
     graph: networkx.MultiDiGraph,
-    engine: RenderingEngines = "mermaid-img",
+    engine: RenderingEngines = "mermaid-image",
     style_map: Optional[Dict[str, str]] = None,
 ) -> Any:
     """
@@ -68,7 +68,7 @@ def _convert(
     if engine == "graphviz":
         return _to_agraph(graph=graph)
 
-    if engine == "mermaid-img":
+    if engine == "mermaid-image":
         return _to_mermaid_image(graph=graph)
 
     if engine == "mermaid-text":
