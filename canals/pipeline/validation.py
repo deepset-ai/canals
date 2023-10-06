@@ -92,4 +92,4 @@ def _validate_nodes_receive_only_expected_input(graph: networkx.MultiDiGraph, in
 
             sender = graph.nodes[node]["input_sockets"][socket_name].sender
             if sender:
-                raise ValueError(f"The input {socket_name} of {node} is already sent by node {sender}")
+                raise ValueError(f"The input {socket_name} of {node} is already sent by: {sender}")

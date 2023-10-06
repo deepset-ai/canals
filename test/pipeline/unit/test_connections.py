@@ -372,7 +372,7 @@ def test_connect_many_outputs_to_the_same_input():
     pipe.add_component("second", add_2)
     pipe.add_component("third", add_2)
     pipe.connect("first.result", "second.value")
-    with pytest.raises(PipelineConnectError, match="second.value is already connected to first"):
+    with pytest.raises(PipelineConnectError, match="second.value is already connected to \['first'\]"):
         pipe.connect("third.result", "second.value")
 
 

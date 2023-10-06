@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Optional, Union, get_origin, get_args
+from typing import get_origin, get_args
 import logging
 from dataclasses import dataclass, field
+
+from canals.component.types import Variadic
 
 
 logger = logging.getLogger(__name__)
@@ -14,10 +16,16 @@ class InputSocket:
     name: str
     type: type
     is_optional: bool = field(init=False)
-    sender: Optional[str] = None
+    is_variadic: bool = field(init=False)
+    sender: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.is_optional = get_origin(self.type) is Union and type(None) in get_args(self.type)
+        self.is_variadic = get_origin(self.type) is Variadic
+        if self.is_variadic:
+            # We need to "unpack" the type inside the Variadic container,
+            # otherwise the pipeline connection api will try to match "Variadic"
+            self.type = get_args(self.type)
 
 
 @dataclass
