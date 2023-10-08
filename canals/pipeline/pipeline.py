@@ -213,8 +213,8 @@ class Pipeline:
             )
 
         # Create the component's input and output sockets
-        inputs = getattr(instance.run, "__canals_input__", {})
-        outputs = getattr(instance.run, "__canals_output__", {})
+        inputs = getattr(instance, "__canals_input__", {})
+        outputs = getattr(instance, "__canals_output__", {})
         input_sockets = {name: InputSocket(**data) for name, data in inputs.items()}
         output_sockets = {name: OutputSocket(**data) for name, data in outputs.items()}
 
