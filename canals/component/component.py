@@ -73,6 +73,7 @@ import inspect
 from typing import Protocol, Union, Dict, Any, get_origin, get_args
 from functools import wraps
 
+from canals.component.sockets import InputSocket, OutputSocket
 from canals.errors import ComponentError
 
 
@@ -108,11 +109,11 @@ class ComponentMeta(type):
         if not hasattr(instance, "__canals_input__"):
             instance.__canals_input__ = {
                 # Create the input sockets
-                param: {
-                    "name": param,
-                    "type": run_signature.parameters[param].annotation,
-                    "is_optional": _is_optional(run_signature.parameters[param].annotation),
-                }
+                param: InputSocket(
+                    name=param,
+                    type=run_signature.parameters[param].annotation,
+                    is_optional=_is_optional(run_signature.parameters[param].annotation),
+                )
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }
 
@@ -158,7 +159,7 @@ class _Component:
         ```
         """
         instance.__canals_input__ = {
-            name: {"name": name, "type": type_, "is_optional": _is_optional(type_)} for name, type_ in types.items()
+            name: InputSocket(name=name, type=type_, is_optional=_is_optional(type_)) for name, type_ in types.items()
         }
 
     def set_output_types(self, instance, **types):
@@ -184,7 +185,7 @@ class _Component:
         if not types:
             return
 
-        instance.__canals_output__ = {name: {"name": name, "type": type_} for name, type_ in types.items()}
+        instance.__canals_output__ = {name: OutputSocket(name=name, type=type_) for name, type_ in types.items()}
 
     def output_types(self, **types):
         """
@@ -211,7 +212,7 @@ class _Component:
             setattr(
                 run_method,
                 "_output_types_cache",
-                {name: {"name": name, "type": type_} for name, type_ in types.items()},
+                {name: OutputSocket(name=name, type=type_) for name, type_ in types.items()},
             )
             return run_method
 
