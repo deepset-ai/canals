@@ -70,7 +70,7 @@
 
 import logging
 import inspect
-from typing import Protocol, Union, Dict, Any, get_origin, get_args
+from typing import Protocol, Dict, Any
 from functools import wraps
 
 from canals.component.sockets import InputSocket, OutputSocket
@@ -112,7 +112,6 @@ class ComponentMeta(type):
                 param: InputSocket(
                     name=param,
                     type=run_signature.parameters[param].annotation,
-                    is_optional=_is_optional(run_signature.parameters[param].annotation),
                 )
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }
@@ -158,9 +157,7 @@ class _Component:
                 return {"output_1": kwargs["value_1"], "output_2": ""}
         ```
         """
-        instance.__canals_input__ = {
-            name: InputSocket(name=name, type=type_, is_optional=_is_optional(type_)) for name, type_ in types.items()
-        }
+        instance.__canals_input__ = {name: InputSocket(name=name, type=type_) for name, type_ in types.items()}
 
     def set_output_types(self, instance, **types):
         """
@@ -256,10 +253,3 @@ class _Component:
 
 
 component = _Component()
-
-
-def _is_optional(type_: type) -> bool:
-    """
-    Utility method that returns whether a type is Optional.
-    """
-    return get_origin(type_) is Union and type(None) in get_args(type_)
