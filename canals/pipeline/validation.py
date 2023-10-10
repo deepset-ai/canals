@@ -6,11 +6,38 @@ import logging
 
 import networkx
 
+from canals.utils import _type_name
 from canals.errors import PipelineValidationError
 from canals.pipeline.sockets import InputSocket, OutputSocket
 
 
 logger = logging.getLogger(__name__)
+
+
+def _describe_pipeline_inputs(graph: networkx.MultiDiGraph):
+    """
+    Returns a dictionary with the input names and types that this pipeline accepts.
+    """
+    inputs = {
+        comp: {socket.name: {"type": socket.type, "is_optional": socket.is_optional} for socket in data}
+        for comp, data in _find_pipeline_inputs(graph).items()
+        if data
+    }
+    return inputs
+
+
+def _describe_pipeline_inputs_as_string(graph: networkx.MultiDiGraph):
+    """
+    Returns a string representation of the input names and types that this pipeline accepts.
+    """
+    inputs = _describe_pipeline_inputs(graph)
+    message = "This pipeline accepts the following inputs:\n"
+    for comp, sockets in inputs.items():
+        if sockets:
+            message += f"- {comp}:\n"
+            for name, socket in sockets.items():
+                message += f"    - {name}: {_type_name(socket['type'])}\n"
+    return message
 
 
 def _find_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, List[InputSocket]]:
@@ -46,7 +73,10 @@ def _validate_pipeline_input(graph: networkx.MultiDiGraph, input_values: Dict[st
     # Make sure the input keys are all nodes of the pipeline
     unknown_components = [key for key in input_values.keys() if not key in graph.nodes]
     if unknown_components:
-        raise ValueError(f"Pipeline received data for unknown component(s): {', '.join(unknown_components)}")
+        all_inputs = _describe_pipeline_inputs_as_string(graph)
+        raise ValueError(
+            f"Pipeline received data for unknown component(s): {', '.join(unknown_components)}\n\n{all_inputs}"
+        )
 
     # Make sure all necessary sockets are connected
     _validate_input_sockets_are_connected(graph, input_values)
@@ -72,7 +102,8 @@ def _validate_input_sockets_are_connected(graph: networkx.MultiDiGraph, input_va
                 or inputs_for_node.get(socket.name, None) is None
             )
             if missing_input_value and not socket.is_optional:
-                raise ValueError(f"Missing input: {node}.{socket.name}")
+                all_inputs = _describe_pipeline_inputs_as_string(graph)
+                raise ValueError(f"Missing input: {node}.{socket.name}\n\n{all_inputs}")
 
 
 def _validate_nodes_receive_only_expected_input(graph: networkx.MultiDiGraph, input_values: Dict[str, Any]):
@@ -86,8 +117,8 @@ def _validate_nodes_receive_only_expected_input(graph: networkx.MultiDiGraph, in
                 continue
             if not socket_name in graph.nodes[node]["input_sockets"].keys():
                 raise ValueError(
-                    f"Component {node} is not expecting any input value called {socket_name}. "
-                    "Are you using the correct Input class?"
+                    all_inputs := _describe_pipeline_inputs_as_string(graph),
+                    f"Component {node} is not expecting any input value called {socket_name}.\n\n{all_inputs}",
                 )
 
             sender = graph.nodes[node]["input_sockets"][socket_name].sender
