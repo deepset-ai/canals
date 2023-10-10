@@ -31,7 +31,7 @@ def _describe_pipeline_inputs_as_string(graph: networkx.MultiDiGraph):
     Returns a string representation of the input names and types that this pipeline accepts.
     """
     inputs = _describe_pipeline_inputs(graph)
-    message = "This pipeline accepts the following inputs:\n"
+    message = "This pipeline expects the following inputs:\n"
     for comp, sockets in inputs.items():
         if sockets:
             message += f"- {comp}:\n"
