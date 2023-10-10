@@ -342,7 +342,7 @@ def test_describe_input_only_no_inputs_components():
     p.add_component("c", C())
     p.connect("a.x", "c.x")
     p.connect("b.y", "c.y")
-    assert p.describe_input() == {}
+    assert p.inputs() == {}
 
 
 def test_describe_input_some_components_with_no_inputs():
@@ -355,7 +355,7 @@ def test_describe_input_some_components_with_no_inputs():
     p.add_component("c", C())
     p.connect("a.x", "c.x")
     p.connect("b.y", "c.y")
-    assert p.describe_input() == {"b": {"y": {"type": int, "is_optional": False}}}
+    assert p.inputs() == {"b": {"y": {"type": int, "is_optional": False}}}
 
 
 def test_describe_input_all_components_have_inputs():
@@ -368,52 +368,7 @@ def test_describe_input_all_components_have_inputs():
     p.add_component("c", C())
     p.connect("a.x", "c.x")
     p.connect("b.y", "c.y")
-    assert p.describe_input() == {
+    assert p.inputs() == {
         "a": {"x": {"type": Optional[int], "is_optional": True}},
         "b": {"y": {"type": int, "is_optional": False}},
     }
-
-
-def test_describe_input_log_level_defaults_to_info(caplog):
-    caplog.set_level(logging.INFO)
-    A = component_class("A", input_types={"x": Optional[int]}, output={"x": 0})
-    B = component_class("B", input_types={"y": int}, output={"y": 0})
-    C = component_class("C", input_types={"x": int, "y": int}, output={"z": 0})
-    p = Pipeline()
-    p.add_component("a", A())
-    p.add_component("b", B())
-    p.add_component("c", C())
-    p.connect("a.x", "c.x")
-    p.connect("b.y", "c.y")
-    p.describe_input()
-    assert caplog.text
-
-
-def test_describe_input_log_level_is_respected(caplog):
-    caplog.set_level(logging.CRITICAL)
-    A = component_class("A", input_types={"x": Optional[int]}, output={"x": 0})
-    B = component_class("B", input_types={"y": int}, output={"y": 0})
-    C = component_class("C", input_types={"x": int, "y": int}, output={"z": 0})
-    p = Pipeline()
-    p.add_component("a", A())
-    p.add_component("b", B())
-    p.add_component("c", C())
-    p.connect("a.x", "c.x")
-    p.connect("b.y", "c.y")
-    p.describe_input(log_level="CRITICAL")
-    assert caplog.text
-
-
-def test_describe_input_dont_log_if_log_level_is_None(caplog):
-    caplog.set_level(logging.INFO)
-    A = component_class("A", input_types={"x": Optional[int]}, output={"x": 0})
-    B = component_class("B", input_types={"y": int}, output={"y": 0})
-    C = component_class("C", input_types={"x": int, "y": int}, output={"z": 0})
-    p = Pipeline()
-    p.add_component("a", A())
-    p.add_component("b", B())
-    p.add_component("c", C())
-    p.connect("a.x", "c.x")
-    p.connect("b.y", "c.y")
-    p.describe_input(log_level=None)
-    assert not caplog.text
