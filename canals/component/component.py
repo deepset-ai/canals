@@ -71,7 +71,6 @@
 import logging
 import inspect
 from typing import Protocol, Union, Dict, Any, get_origin, get_args
-from functools import wraps
 
 from canals.errors import ComponentError
 
