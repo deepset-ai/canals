@@ -7,7 +7,7 @@ from canals import component
 
 
 @component
-class AddFixedValue:  # pylint: disable=too-few-public-methods
+class AddFixedValue:
     """
     Adds two values together.
     """

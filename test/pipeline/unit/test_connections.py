@@ -8,27 +8,28 @@ from pathlib import Path
 
 import pytest
 
-from canals import Pipeline, component
+from canals import Pipeline
 from canals.errors import PipelineConnectError
 from canals.testing import factory
+from canals.pipeline.connections import parse_connection
 from sample_components import AddFixedValue
 
 
-class TestClass1:
+class Class1:
     ...
 
 
-class TestClass2:
+class Class2:
     ...
 
 
-class TestClass3(TestClass1):
+class Class3(Class1):
     ...
 
 
-class TestEnum(Enum):
-    TEST1 = TestClass1
-    TEST2 = TestClass2
+class Enum1(Enum):
+    TEST1 = Class1
+    TEST2 = Class2
 
 
 @pytest.mark.parametrize(
@@ -40,34 +41,32 @@ class TestEnum(Enum):
         pytest.param(Union[int, str], Union[int, str], id="identical-unions"),
         pytest.param(Union[int, str], Union[int, str, bool], id="receiving-union-is-superset-of-sender"),
         pytest.param(str, Any, id="primitive-to-any"),
-        pytest.param(TestClass1, TestClass1, id="same-class"),
-        pytest.param(TestClass1, Optional[TestClass1], id="receiving-class-is-optional"),
-        pytest.param(TestClass1, TestClass1, id="class-to-any"),
-        pytest.param(TestClass3, TestClass1, id="subclass-to-class"),
-        pytest.param(TestClass1, Union[int, TestClass1], id="receiving-type-is-union-of-classes"),
-        pytest.param(TestClass3, Union[int, TestClass1], id="receiving-type-is-union-of-superclasses"),
+        pytest.param(Class1, Class1, id="same-class"),
+        pytest.param(Class1, Optional[Class1], id="receiving-class-is-optional"),
+        pytest.param(Class1, Class1, id="class-to-any"),
+        pytest.param(Class3, Class1, id="subclass-to-class"),
+        pytest.param(Class1, Union[int, Class1], id="receiving-type-is-union-of-classes"),
+        pytest.param(Class3, Union[int, Class1], id="receiving-type-is-union-of-superclasses"),
         pytest.param(List[int], List[int], id="same-lists"),
         pytest.param(List[int], Optional[List[int]], id="receiving-list-is-optional"),
         pytest.param(List[int], List[Any], id="list-of-primitive-to-list-of-any"),
-        pytest.param(List[TestClass1], List[TestClass1], id="list-of-same-classes"),
-        pytest.param(List[TestClass3], List[TestClass1], id="list-of-subclass-to-list-of-class"),
-        pytest.param(List[TestClass1], List[Any], id="list-of-classes-to-list-of-any"),
+        pytest.param(List[Class1], List[Class1], id="list-of-same-classes"),
+        pytest.param(List[Class3], List[Class1], id="list-of-subclass-to-list-of-class"),
+        pytest.param(List[Class1], List[Any], id="list-of-classes-to-list-of-any"),
         pytest.param(List[Set[Sequence[bool]]], List[Set[Sequence[bool]]], id="nested-sequences-of-same-primitives"),
         pytest.param(
             List[Set[Sequence[bool]]],
             List[Set[Sequence[Any]]],
             id="nested-sequences-of-primitives-to-nested-sequences-of-any",
         ),
+        pytest.param(List[Set[Sequence[Class1]]], List[Set[Sequence[Class1]]], id="nested-sequences-of-same-classes"),
         pytest.param(
-            List[Set[Sequence[TestClass1]]], List[Set[Sequence[TestClass1]]], id="nested-sequences-of-same-classes"
-        ),
-        pytest.param(
-            List[Set[Sequence[TestClass3]]],
-            List[Set[Sequence[TestClass1]]],
+            List[Set[Sequence[Class3]]],
+            List[Set[Sequence[Class1]]],
             id="nested-sequences-of-subclasses-to-nested-sequences-of-classes",
         ),
         pytest.param(
-            List[Set[Sequence[TestClass1]]],
+            List[Set[Sequence[Class1]]],
             List[Set[Sequence[Any]]],
             id="nested-sequences-of-classes-to-nested-sequences-of-any",
         ),
@@ -75,11 +74,11 @@ class TestEnum(Enum):
         pytest.param(Dict[str, int], Dict[Any, int], id="dict-of-primitives-to-dict-of-any-keys"),
         pytest.param(Dict[str, int], Dict[str, Any], id="dict-of-primitives-to-dict-of-any-values"),
         pytest.param(Dict[str, int], Dict[Any, Any], id="dict-of-primitives-to-dict-of-any-key-and-values"),
-        pytest.param(Dict[str, TestClass1], Dict[str, TestClass1], id="same-dicts-of-classes-values"),
-        pytest.param(Dict[str, TestClass3], Dict[str, TestClass1], id="dict-of-subclasses-to-dict-of-classes"),
-        pytest.param(Dict[str, TestClass1], Dict[Any, TestClass1], id="dict-of-classes-to-dict-of-any-keys"),
-        pytest.param(Dict[str, TestClass1], Dict[str, Any], id="dict-of-classes-to-dict-of-any-values"),
-        pytest.param(Dict[str, TestClass1], Dict[Any, Any], id="dict-of-classes-to-dict-of-any-key-and-values"),
+        pytest.param(Dict[str, Class1], Dict[str, Class1], id="same-dicts-of-classes-values"),
+        pytest.param(Dict[str, Class3], Dict[str, Class1], id="dict-of-subclasses-to-dict-of-classes"),
+        pytest.param(Dict[str, Class1], Dict[Any, Class1], id="dict-of-classes-to-dict-of-any-keys"),
+        pytest.param(Dict[str, Class1], Dict[str, Any], id="dict-of-classes-to-dict-of-any-values"),
+        pytest.param(Dict[str, Class1], Dict[Any, Any], id="dict-of-classes-to-dict-of-any-key-and-values"),
         pytest.param(
             Dict[str, Mapping[str, Dict[str, int]]],
             Dict[str, Mapping[str, Dict[str, int]]],
@@ -106,32 +105,32 @@ class TestEnum(Enum):
             id="nested-mapping-of-primitives-to-nested-mapping-of-any-keys-and-values",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
             id="nested-mappings-of-same-classes",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass3]]],
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class3]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
             id="nested-mapping-of-subclasses-to-nested-mapping-of-classes",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
-            Dict[str, Mapping[str, Dict[Any, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
+            Dict[str, Mapping[str, Dict[Any, Class1]]],
             id="nested-mapping-of-classes-to-nested-mapping-of-any-keys",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
-            Dict[str, Mapping[Any, Dict[str, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
+            Dict[str, Mapping[Any, Dict[str, Class1]]],
             id="nested-mapping-of-classes-to-nested-mapping-of-higher-level-any-keys",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
             Dict[str, Mapping[str, Dict[str, Any]]],
             id="nested-mapping-of-classes-to-nested-mapping-of-any-values",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
             Dict[str, Mapping[Any, Dict[Any, Any]]],
             id="nested-mapping-of-classes-to-nested-mapping-of-any-keys-and-values",
         ),
@@ -141,13 +140,13 @@ class TestEnum(Enum):
             id="same-primitive-literal",
         ),
         pytest.param(
-            Literal[TestEnum.TEST1],
-            Literal[TestEnum.TEST1],
+            Literal[Enum1.TEST1],
+            Literal[Enum1.TEST1],
             id="same-enum-literal",
         ),
         pytest.param(
-            Tuple[Optional[Literal["a", "b", "c"]], Union[Path, Dict[int, TestClass1]]],
-            Tuple[Optional[Literal["a", "b", "c"]], Union[Path, Dict[int, TestClass1]]],
+            Tuple[Optional[Literal["a", "b", "c"]], Union[Path, Dict[int, Class1]]],
+            Tuple[Optional[Literal["a", "b", "c"]], Union[Path, Dict[int, Class1]]],
             id="identical-deeply-nested-complex-type",
         ),
     ],
@@ -167,24 +166,24 @@ def test_connect_compatible_types(from_type, to_type):
     "from_type, to_type",
     [
         pytest.param(int, bool, id="different-primitives"),
-        pytest.param(TestClass1, TestClass2, id="different-classes"),
-        pytest.param(TestClass1, TestClass3, id="class-to-subclass"),
+        pytest.param(Class1, Class2, id="different-classes"),
+        pytest.param(Class1, Class3, id="class-to-subclass"),
         pytest.param(Any, int, id="any-to-primitive"),
-        pytest.param(Any, TestClass2, id="any-to-class"),
+        pytest.param(Any, Class2, id="any-to-class"),
         pytest.param(Optional[str], str, id="sending-primitive-is-optional"),
-        pytest.param(Optional[TestClass1], TestClass1, id="sending-class-is-optional"),
+        pytest.param(Optional[Class1], Class1, id="sending-class-is-optional"),
         pytest.param(Optional[List[int]], List[int], id="sending-list-is-optional"),
         pytest.param(Union[int, str], str, id="sending-type-is-union"),
         pytest.param(Union[int, str, bool], Union[int, str], id="sending-union-is-superset-of-receiver"),
         pytest.param(Union[int, bool], Union[int, str], id="partially-overlapping-unions-with-primitives"),
-        pytest.param(Union[int, TestClass1], Union[int, TestClass2], id="partially-overlapping-unions-with-classes"),
+        pytest.param(Union[int, Class1], Union[int, Class2], id="partially-overlapping-unions-with-classes"),
         pytest.param(List[int], List[str], id="different-lists-of-primitives"),
         pytest.param(List[int], List, id="list-of-primitive-to-bare-list"),  # is "correct", but we don't support it
         pytest.param(List[int], list, id="list-of-primitive-to-list-object"),  # is "correct", but we don't support it
-        pytest.param(List[TestClass1], List[TestClass2], id="different-lists-of-classes"),
-        pytest.param(List[TestClass1], List[TestClass3], id="lists-of-classes-to-subclasses"),
+        pytest.param(List[Class1], List[Class2], id="different-lists-of-classes"),
+        pytest.param(List[Class1], List[Class3], id="lists-of-classes-to-subclasses"),
         pytest.param(List[Any], List[str], id="list-of-any-to-list-of-primitives"),
-        pytest.param(List[Any], List[TestClass2], id="list-of-any-to-list-of-classes"),
+        pytest.param(List[Any], List[Class2], id="list-of-any-to-list-of-classes"),
         pytest.param(
             List[Set[Sequence[str]]], List[Set[Sequence[bool]]], id="nested-sequences-of-different-primitives"
         ),
@@ -192,16 +191,16 @@ def test_connect_compatible_types(from_type, to_type):
             List[Set[Sequence[str]]], Set[List[Sequence[str]]], id="different-nested-sequences-of-same-primitives"
         ),
         pytest.param(
-            List[Set[Sequence[TestClass1]]], List[Set[Sequence[TestClass2]]], id="nested-sequences-of-different-classes"
+            List[Set[Sequence[Class1]]], List[Set[Sequence[Class2]]], id="nested-sequences-of-different-classes"
         ),
         pytest.param(
-            List[Set[Sequence[TestClass1]]],
-            List[Set[Sequence[TestClass3]]],
+            List[Set[Sequence[Class1]]],
+            List[Set[Sequence[Class3]]],
             id="nested-sequences-of-classes-to-subclasses",
         ),
         pytest.param(
-            List[Set[Sequence[TestClass1]]],
-            Set[List[Sequence[TestClass1]]],
+            List[Set[Sequence[Class1]]],
+            Set[List[Sequence[Class1]]],
             id="different-nested-sequences-of-same-class",
         ),
         pytest.param(
@@ -211,18 +210,18 @@ def test_connect_compatible_types(from_type, to_type):
         ),
         pytest.param(
             List[Set[Sequence[Any]]],
-            List[Set[Sequence[TestClass2]]],
+            List[Set[Sequence[Class2]]],
             id="nested-list-of-Any-to-nested-list-of-classes",
         ),
         pytest.param(Dict[str, int], Dict[int, int], id="different-dict-of-primitive-keys"),
         pytest.param(Dict[str, int], Dict[str, bool], id="different-dict-of-primitive-values"),
-        pytest.param(Dict[str, TestClass1], Dict[str, TestClass2], id="different-dict-of-class-values"),
-        pytest.param(Dict[str, TestClass1], Dict[str, TestClass3], id="different-dict-of-class-to-subclass-values"),
+        pytest.param(Dict[str, Class1], Dict[str, Class2], id="different-dict-of-class-values"),
+        pytest.param(Dict[str, Class1], Dict[str, Class3], id="different-dict-of-class-to-subclass-values"),
         pytest.param(Dict[Any, int], Dict[int, int], id="dict-of-Any-keys-to-dict-of-primitives"),
         pytest.param(Dict[str, Any], Dict[int, int], id="dict-of-Any-values-to-dict-of-primitives"),
-        pytest.param(Dict[str, Any], Dict[int, TestClass1], id="dict-of-Any-values-to-dict-of-classes"),
+        pytest.param(Dict[str, Any], Dict[int, Class1], id="dict-of-Any-values-to-dict-of-classes"),
         pytest.param(Dict[Any, Any], Dict[int, int], id="dict-of-Any-keys-and-values-to-dict-of-primitives"),
-        pytest.param(Dict[Any, Any], Dict[int, TestClass1], id="dict-of-Any-keys-and-values-to-dict-of-classes"),
+        pytest.param(Dict[Any, Any], Dict[int, Class1], id="dict-of-Any-keys-and-values-to-dict-of-classes"),
         pytest.param(
             Dict[str, Mapping[str, Dict[str, int]]],
             Mapping[str, Dict[str, Dict[str, int]]],
@@ -244,13 +243,13 @@ def test_connect_compatible_types(from_type, to_type):
             id="same-nested-mappings-of-different-primitive-values",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
-            Dict[str, Mapping[str, Dict[str, TestClass2]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
+            Dict[str, Mapping[str, Dict[str, Class2]]],
             id="same-nested-mappings-of-different-class-values",
         ),
         pytest.param(
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
-            Dict[str, Mapping[str, Dict[str, TestClass2]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
+            Dict[str, Mapping[str, Dict[str, Class2]]],
             id="same-nested-mappings-of-class-to-subclass-values",
         ),
         pytest.param(
@@ -270,7 +269,7 @@ def test_connect_compatible_types(from_type, to_type):
         ),
         pytest.param(
             Dict[str, Mapping[str, Dict[str, Any]]],
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
             id="nested-mapping-of-Any-values-to-nested-mapping-of-classes",
         ),
         pytest.param(
@@ -280,7 +279,7 @@ def test_connect_compatible_types(from_type, to_type):
         ),
         pytest.param(
             Dict[str, Mapping[str, Dict[Any, Any]]],
-            Dict[str, Mapping[str, Dict[str, TestClass1]]],
+            Dict[str, Mapping[str, Dict[str, Class1]]],
             id="nested-mapping-of-Any-keys-and-values-to-nested-mapping-of-classes",
         ),
         pytest.param(
@@ -294,13 +293,13 @@ def test_connect_compatible_types(from_type, to_type):
             id="subset-literal",
         ),
         pytest.param(
-            Literal[TestEnum.TEST1],
-            Literal[TestEnum.TEST2],
+            Literal[Enum1.TEST1],
+            Literal[Enum1.TEST2],
             id="different-literal-of-same-enum",
         ),
         pytest.param(
-            Tuple[Optional[Literal["a", "b", "c"]], Union[Path, Dict[int, TestClass1]]],
-            Tuple[Literal["a", "b", "c"], Union[Path, Dict[int, TestClass1]]],
+            Tuple[Optional[Literal["a", "b", "c"]], Union[Path, Dict[int, Class1]]],
+            Tuple[Literal["a", "b", "c"], Union[Path, Dict[int, Class1]]],
             id="deeply-nested-complex-type-is-compatible-but-cannot-be-checked",
         ),
     ],
@@ -378,17 +377,10 @@ def test_connect_many_outputs_to_the_same_input():
 
 
 def test_connect_many_connections_possible_name_matches():
-    @component
-    class Component1:
-        @component.output_types(value=str)
-        def run(self, value: str):
-            return {"value": value}
-
-    @component
-    class Component2:
-        @component.output_types(value=str)
-        def run(self, value: str, othervalue: str, yetanothervalue: str):
-            return {"value": value}
+    Component1 = factory.component_class("Component1", output_types={"value": str})
+    Component2 = factory.component_class(
+        "Component2", input_types={"value": str, "othervalue": str, "yetanothervalue": str}
+    )
 
     pipe = Pipeline()
     pipe.add_component("c1", Component1())
@@ -398,17 +390,8 @@ def test_connect_many_connections_possible_name_matches():
 
 
 def test_connect_many_connections_possible_no_name_matches():
-    @component
-    class Component1:
-        @component.output_types(value=str)
-        def run(self, value: str):
-            return {"value": value}
-
-    @component
-    class Component2:
-        @component.output_types(value=str)
-        def run(self, value1: str, value2: str, value3: str):
-            return {"value": value1}
+    Component1 = factory.component_class("Component1", output_types={"value": str})
+    Component2 = factory.component_class("Component2", input_types={"value1": str, "value2": str, "value3": str})
 
     expected_message = re.escape(
         """Cannot connect 'c1' with 'c2': more than one connection is possible between these components. Please specify the connection name, like: pipeline.connect('c1.value', 'c2.value1').
@@ -425,3 +408,9 @@ def test_connect_many_connections_possible_no_name_matches():
     pipe.add_component("c2", Component2())
     with pytest.raises(PipelineConnectError, match=expected_message):
         pipe.connect("c1", "c2")
+
+
+def test_parse_connection():
+    assert parse_connection("foobar") == ("foobar", None)
+    assert parse_connection("foo.bar") == ("foo", "bar")
+    assert parse_connection("foo.bar.baz") == ("foo", "bar.baz")

@@ -8,14 +8,14 @@ import itertools
 
 from canals.errors import PipelineConnectError
 from canals.type_checking import _types_are_compatible
-from canals.pipeline.sockets import InputSocket, OutputSocket
+from canals.component.sockets import InputSocket, OutputSocket
 from canals.utils import _type_name
 
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_connection_name(connection: str) -> Tuple[str, Optional[str]]:
+def parse_connection(connection: str) -> Tuple[str, Optional[str]]:
     """
     Returns component-connection pairs from a connect_to/from string
     """

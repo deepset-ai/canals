@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-
 from canals import component
 
 
 @component
-class Double:  # pylint: disable=too-few-public-methods
+class Double:
     """
     Doubles the input value.
     """

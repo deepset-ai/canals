@@ -7,7 +7,7 @@ from canals import component
 
 
 @component
-class Repeat:  # pylint: disable=too-few-public-methods
+class Repeat:
     def __init__(self, outputs: List[str]):
         self.outputs = outputs
         component.set_output_types(self, **{k: int for k in outputs})

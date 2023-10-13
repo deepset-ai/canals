@@ -13,7 +13,7 @@ from collections import OrderedDict
 
 import networkx
 
-from canals.component import component, Component
+from canals.component import component, Component, InputSocket, OutputSocket
 from canals.errors import (
     PipelineError,
     PipelineConnectError,
@@ -22,10 +22,10 @@ from canals.errors import (
     PipelineValidationError,
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
-from canals.pipeline.sockets import InputSocket, OutputSocket
 from canals.pipeline.validation import _validate_pipeline_input
-from canals.pipeline.connections import _parse_connection_name, _find_unambiguous_connection
+from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
 from canals.utils import _type_name
+from canals.serialization import component_to_dict, component_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,10 @@ class Pipeline:
         Returns this Pipeline instance as a dictionary.
         This is meant to be an intermediate representation but it can be also used to save a pipeline to file.
         """
-        components = {name: instance.to_dict() for name, instance in self.graph.nodes(data="instance")}
+        components = {}
+        for name, instance in self.graph.nodes(data="instance"):
+            components[name] = component_to_dict(instance)
+
         connections = []
         for sender, receiver, sockets in self.graph.edges:
             (sender_socket, receiver_socket) = sockets.split("/")
@@ -113,18 +116,14 @@ class Pipeline:
             "components": {
                 "add_two": {
                     "type": "AddFixedValue",
-                    "hash": "123",
                     "init_parameters": {"add": 2},
                 },
                 "add_default": {
                     "type": "AddFixedValue",
-                    "hash": "456",
-                    "init_parameters": {},
+                    "init_parameters": {"add": 1},
                 },
                 "double": {
                     "type": "Double",
-                    "hash": "789",
-                    "init_parameters": {},
                 },
             },
             "connections": [
@@ -156,7 +155,8 @@ class Pipeline:
                 if component_data["type"] not in component.registry:
                     raise PipelineError(f"Component '{component_data['type']}' not imported.")
                 # Create a new one
-                instance = component.registry[component_data["type"]].from_dict(component_data)
+                component_class = component.registry[component_data["type"]]
+                instance = component_from_dict(component_class, component_data)
             pipe.add_component(name=name, instance=instance)
 
         for connection in data.get("connections", []):
@@ -170,13 +170,11 @@ class Pipeline:
 
     def _comparable_nodes_list(self, graph: networkx.MultiDiGraph) -> List[Dict[str, Any]]:
         """
-        Replaces instances of nodes with their class name and defaults list in order to make sure they're comparable.
+        Replaces instances of nodes with their class name in order to make sure they're comparable.
         """
         nodes = []
         for node in graph.nodes:
             comparable_node = graph.nodes[node]
-            if hasattr(comparable_node, "defaults"):
-                comparable_node["defaults"] = comparable_node["instance"].defaults
             comparable_node["instance"] = comparable_node["instance"].__class__
             nodes.append(comparable_node)
         nodes.sort()
@@ -250,8 +248,8 @@ class Pipeline:
                 not present in the pipeline, or the connections don't match by type, and so on).
         """
         # Edges may be named explicitly by passing 'node_name.edge_name' to connect().
-        from_node, from_socket_name = _parse_connection_name(connect_from)
-        to_node, to_socket_name = _parse_connection_name(connect_to)
+        from_node, from_socket_name = parse_connection(connect_from)
+        to_node, to_socket_name = parse_connection(connect_to)
 
         # Get the nodes data.
         try:
@@ -339,15 +337,15 @@ class Pipeline:
         except KeyError as exc:
             raise ValueError(f"Component named {name} not found in the pipeline.") from exc
 
-    def draw(self, path: Path, engine: RenderingEngines = "mermaid-img") -> None:
+    def draw(self, path: Path, engine: RenderingEngines = "mermaid-image") -> None:
         """
         Draws the pipeline. Requires either `graphviz` as a system dependency, or an internet connection for Mermaid.
         Run `pip install canals[graphviz]` or `pip install canals[mermaid]` to install missing dependencies.
 
         Args:
             path: where to save the diagram.
-            engine: which format to save the graph as. Accepts 'graphviz', 'mermaid-text', 'mermaid-img'.
-                Default is 'mermaid-img'.
+            engine: which format to save the graph as. Accepts 'graphviz', 'mermaid-text', 'mermaid-image'.
+                Default is 'mermaid-image'.
 
         Returns:
             None
@@ -361,7 +359,7 @@ class Pipeline:
             for comp, data in self.graph.nodes(data=True)
         }
         print(sockets)
-        _draw(graph=deepcopy(self.graph), path=path, engine=engine)
+        _draw(graph=networkx.MultiDiGraph(self.graph), path=path, engine=engine)
 
     def warm_up(self):
         """
@@ -730,18 +728,18 @@ class Pipeline:
             logger.info("* Running %s (visits: %s)", name, self.graph.nodes[name]["visits"])
             logger.debug("   '%s' inputs: %s", name, inputs)
 
-            # # Optional fields are defaulted to None so creation of the input dataclass doesn't fail
-            # # cause we're missing some argument
-            # optionals = {field: None for field in instance.__canals_optional_inputs__}
-
-            # Pass the inputs as kwargs after adding the component's own defaults to them
-            # inputs = {**optionals, **instance.defaults, **inputs}
-            # input_dataclass = instance.input(**inputs)
-
             outputs = instance.run(**inputs)
 
             # Unwrap the output
             logger.debug("   '%s' outputs: %s\n", name, outputs)
+
+            # Make sure the component returned a dictionary
+            if not isinstance(outputs, dict):
+                raise PipelineRuntimeError(
+                    f"Component '{name}' returned a value of type "
+                    f"'{getattr(type(outputs), '__name__', str(type(outputs)))}' instead of a dict. "
+                    "Components must always return dictionaries: check the the documentation."
+                )
 
         except Exception as e:
             raise PipelineRuntimeError(

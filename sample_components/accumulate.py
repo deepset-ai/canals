@@ -1,16 +1,22 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Union, Callable, Optional
+from typing import Callable, Optional, Dict, Any
 import sys
 import builtins
 from importlib import import_module
 
-from canals import component
+from canals.serialization import default_to_dict
+from canals.component import component, Component
+from canals.errors import ComponentDeserializationError
+
+
+def _default_function(first: int, second: int) -> int:
+    return first + second
 
 
 @component
-class Accumulate:  # pylint: disable=too-few-public-methods
+class Accumulate:
     """
     Accumulates the value flowing through the connection into an internal attribute.
     The sum function can be customized.
@@ -19,7 +25,7 @@ class Accumulate:  # pylint: disable=too-few-public-methods
     are not directly serializable.
     """
 
-    def __init__(self, function: Optional[Union[Callable, str]] = None):
+    def __init__(self, function: Optional[Callable] = None):
         """
         :param function: the function to use to accumulate the values.
             The function must take exactly two values.
@@ -28,13 +34,37 @@ class Accumulate:  # pylint: disable=too-few-public-methods
             import it at need. This is also a parameter.
         """
         self.state = 0
+        self.function: Callable = _default_function if function is None else function  # type: ignore
 
-        if function is None:
-            self.function = lambda x, y: x + y
+    def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
+        module = sys.modules.get(self.function.__module__)
+        if not module:
+            raise ValueError("Could not locate the import module.")
+        if module == builtins:
+            function_name = self.function.__name__
         else:
-            self.function = self._load_function(function)
-            # 'function' is not serializable by default, so we serialize it manually.
-            self.init_parameters = {"function": self._save_function(function)}
+            function_name = f"{module.__name__}.{self.function.__name__}"
+
+        return default_to_dict(self, function=function_name)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Component:  # pylint: disable=missing-function-docstring
+        if "type" not in data:
+            raise ComponentDeserializationError("Missing 'type' in component serialization data")
+        if data["type"] != cls.__name__:
+            raise ComponentDeserializationError(f"Component '{data['type']}' can't be deserialized as '{cls.__name__}'")
+
+        init_params = data.get("init_parameters", {})
+
+        accumulator_function = None
+        if "function" in init_params:
+            parts = init_params["function"].split(".")
+            module_name = ".".join(parts[:-1])
+            function_name = parts[-1]
+            module = import_module(module_name)
+            accumulator_function = getattr(module, function_name)
+
+        return cls(function=accumulator_function)
 
     @component.output_types(value=int)
     def run(self, value: int):
@@ -42,34 +72,5 @@ class Accumulate:  # pylint: disable=too-few-public-methods
         Accumulates the value flowing through the connection into an internal attribute.
         The sum function can be customized.
         """
-
         self.state = self.function(self.state, value)
         return {"value": self.state}
-
-    def _load_function(self, function: Union[Callable, str]):
-        """
-        Loads the function by trying to import it.
-        """
-        if not isinstance(function, str):
-            return function
-
-        parts = function.split(".")
-        module_name = ".".join(parts[:-1])
-        function_name = parts[-1]
-
-        module = import_module(module_name)
-        return getattr(module, function_name)
-
-    def _save_function(self, function: Union[Callable, str]):
-        """
-        Saves the function by returning its import path to be used with `_load_function`
-        (which uses `import_module` internally).
-        """
-        if isinstance(function, str):
-            return function
-        module = sys.modules.get(function.__module__)
-        if not module:
-            raise ValueError("Could not locate the import module.")
-        if module == builtins:
-            return function.__name__
-        return f"{module.__name__}.{function.__name__}"

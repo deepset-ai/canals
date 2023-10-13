@@ -4,7 +4,6 @@
 from typing import Optional
 import logging
 
-
 from canals import component
 
 
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @component
-class Greet:  # pylint: disable=too-few-public-methods
+class Greet:
     """
     Logs a greeting message without affecting the value passing on the connection.
     """

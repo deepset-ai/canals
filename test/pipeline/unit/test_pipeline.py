@@ -7,8 +7,8 @@ import logging
 import pytest
 
 from canals import Pipeline
-from canals.pipeline.sockets import InputSocket, OutputSocket
-from canals.errors import PipelineMaxLoops, PipelineError
+from canals.component.sockets import InputSocket, OutputSocket
+from canals.errors import PipelineMaxLoops, PipelineError, PipelineRuntimeError
 from sample_components import AddFixedValue, Threshold, MergeLoop, Double
 from canals.testing.factory import component_class
 
@@ -25,6 +25,17 @@ def test_max_loops():
     pipe.connect("merge.value", "threshold.value")
     with pytest.raises(PipelineMaxLoops):
         pipe.run({"merge": {"value_2": 1}})
+
+
+def test_run_with_component_that_does_not_return_dict():
+    BrokenComponent = component_class("BrokenComponent", input_types={"a": int}, output_types={"b": int}, output=1)
+
+    pipe = Pipeline(max_loops_allowed=10)
+    pipe.add_component("comp", BrokenComponent())
+    with pytest.raises(
+        PipelineRuntimeError, match="Component 'comp' returned a value of type 'int' instead of a dict."
+    ):
+        pipe.run({"comp": {"a": 1}})
 
 
 def test_to_dict():
@@ -45,17 +56,14 @@ def test_to_dict():
         "components": {
             "add_two": {
                 "type": "AddFixedValue",
-                "hash": id(add_two),
                 "init_parameters": {"add": 2},
             },
             "add_default": {
                 "type": "AddFixedValue",
-                "hash": id(add_default),
-                "init_parameters": {},
+                "init_parameters": {"add": 1},
             },
             "double": {
                 "type": "Double",
-                "hash": id(double),
                 "init_parameters": {},
             },
         },
@@ -74,17 +82,14 @@ def test_from_dict():
         "components": {
             "add_two": {
                 "type": "AddFixedValue",
-                "hash": "123",
                 "init_parameters": {"add": 2},
             },
             "add_default": {
                 "type": "AddFixedValue",
-                "hash": "456",
-                "init_parameters": {},
+                "init_parameters": {"add": 1},
             },
             "double": {
                 "type": "Double",
-                "hash": "789",
                 "init_parameters": {},
             },
         },
@@ -177,7 +182,6 @@ def test_from_dict_with_components_instances():
             "add_default": {},
             "double": {
                 "type": "Double",
-                "hash": "789",
                 "init_parameters": {},
             },
         },
@@ -258,7 +262,6 @@ def test_from_dict_without_component_type():
         "max_loops_allowed": 100,
         "components": {
             "add_two": {
-                "hash": "123",
                 "init_parameters": {"add": 2},
             },
         },
@@ -278,7 +281,6 @@ def test_from_dict_without_registered_component_type(request):
             "add_two": {
                 # We use the test function name as component type to make sure it's not registered.
                 "type": request.node.name,
-                "hash": "123",
                 "init_parameters": {"add": 2},
             },
         },
@@ -318,6 +320,7 @@ def test_from_dict_without_connection_receiver():
         Pipeline.from_dict(data)
 
     err.match("Missing receiver in connection: {'sender': 'some.sender'}")
+
 
 def test_falsy_connection():
     A = component_class("A", input_types={"x": int}, output={"y": 0})

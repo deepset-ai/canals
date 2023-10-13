@@ -7,7 +7,7 @@ from canals import component
 
 
 @component
-class Concatenate:  # pylint: disable=too-few-public-methods
+class Concatenate:
     """
     Concatenates two values
     """
