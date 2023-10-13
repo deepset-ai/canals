@@ -307,7 +307,7 @@ class Pipeline:
 
         # Create the connection
         logger.debug("Connecting '%s.%s' to '%s.%s'", from_node, from_socket.name, to_node, to_socket.name)
-        edge_key = str(hash(f"{from_socket.name}/{to_socket.name}"))
+        edge_key = f"{from_socket.name}/{to_socket.name}"
         self.graph.add_edge(
             from_node,
             to_node,
