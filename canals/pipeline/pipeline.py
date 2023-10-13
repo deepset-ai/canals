@@ -89,8 +89,9 @@ class Pipeline:
             components[name] = component_to_dict(instance)
 
         connections = []
-        for sender, receiver, sockets in self.graph.edges:
-            (sender_socket, receiver_socket) = sockets.split("/")
+        for sender, receiver, edge_data in self.graph.edges.data():
+            sender_socket = edge_data["from_socket"].name
+            receiver_socket = edge_data["to_socket"].name
             connections.append(
                 {
                     "sender": f"{sender}.{sender_socket}",
@@ -306,7 +307,7 @@ class Pipeline:
 
         # Create the connection
         logger.debug("Connecting '%s.%s' to '%s.%s'", from_node, from_socket.name, to_node, to_socket.name)
-        edge_key = f"{from_socket.name}/{to_socket.name}"
+        edge_key = str(hash(f"{from_socket.name}/{to_socket.name}"))
         self.graph.add_edge(
             from_node,
             to_node,
