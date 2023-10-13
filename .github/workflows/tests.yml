@@ -97,7 +97,7 @@ jobs:
       - name: Install Canals (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt install graphviz libgraphviz-
+          sudo apt install graphviz libgraphviz-dev
           pip install .[dev] pygraphviz
 
       - name: Install Canals (MacOS)
