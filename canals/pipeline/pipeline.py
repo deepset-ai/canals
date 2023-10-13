@@ -13,7 +13,7 @@ from collections import OrderedDict
 
 import networkx
 
-from canals.component import component, Component
+from canals.component import component, Component, InputSocket, OutputSocket
 from canals.errors import (
     PipelineError,
     PipelineConnectError,
@@ -22,13 +22,12 @@ from canals.errors import (
     PipelineValidationError,
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
-from canals.pipeline.sockets import InputSocket, OutputSocket
 from canals.pipeline.validation import (
     _validate_pipeline_input,
     _describe_pipeline_inputs,
     _describe_pipeline_inputs_as_string,
 )
-from canals.pipeline.connections import _parse_connection_name, _find_unambiguous_connection
+from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
 from canals.utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
@@ -253,8 +252,8 @@ class Pipeline:
                 not present in the pipeline, or the connections don't match by type, and so on).
         """
         # Edges may be named explicitly by passing 'node_name.edge_name' to connect().
-        from_node, from_socket_name = _parse_connection_name(connect_from)
-        to_node, to_socket_name = _parse_connection_name(connect_to)
+        from_node, from_socket_name = parse_connection(connect_from)
+        to_node, to_socket_name = parse_connection(connect_to)
 
         # Get the nodes data.
         try:
