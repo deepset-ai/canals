@@ -205,9 +205,6 @@ class _Component:
                 return {"output_1": 1, "output_2": "2"}
         ```
         """
-        if not types:
-            return
-
         instance.__canals_output__ = {name: {"name": name, "type": type_} for name, type_ in types.items()}
 
     def output_types(self, **types):
