@@ -24,7 +24,7 @@ from canals.errors import (
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.validation import _validate_pipeline_input
 from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
-from canals.utils import _type_name
+from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
 logger = logging.getLogger(__name__)
@@ -89,8 +89,9 @@ class Pipeline:
             components[name] = component_to_dict(instance)
 
         connections = []
-        for sender, receiver, sockets in self.graph.edges:
-            (sender_socket, receiver_socket) = sockets.split("/")
+        for sender, receiver, edge_data in self.graph.edges.data():
+            sender_socket = edge_data["from_socket"].name
+            receiver_socket = edge_data["to_socket"].name
             connections.append(
                 {
                     "sender": f"{sender}.{sender_socket}",
@@ -354,11 +355,6 @@ class Pipeline:
             ImportError: if `engine='graphviz'` and `pygraphviz` is not installed.
             HTTPConnectionError: (and similar) if the internet connection is down or other connection issues.
         """
-        sockets = {
-            comp: "\n".join([f"{name}: {socket}" for name, socket in data.get("input_sockets", {}).items()])
-            for comp, data in self.graph.nodes(data=True)
-        }
-        print(sockets)
         _draw(graph=networkx.MultiDiGraph(self.graph), path=path, engine=engine)
 
     def warm_up(self):

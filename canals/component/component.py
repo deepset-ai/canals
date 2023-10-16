@@ -73,7 +73,9 @@ import inspect
 from typing import Protocol, Union, get_origin, get_args, runtime_checkable, Any
 from types import new_class
 
+
 from canals.errors import ComponentError
+from canals.type_utils import _is_optional
 
 logger = logging.getLogger(__name__)
 
@@ -280,10 +282,3 @@ class _Component:
 
 
 component = _Component()
-
-
-def _is_optional(type_: type) -> bool:
-    """
-    Utility method that returns whether a type is Optional.
-    """
-    return get_origin(type_) is Union and type(None) in get_args(type_)
