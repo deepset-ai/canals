@@ -207,7 +207,7 @@ class Pipeline:
             raise ValueError("'_debug' is a reserved name for debug output. Choose another name.")
 
         # Component instances must be components
-        if not hasattr(instance, "__canals_component__"):
+        if not isinstance(instance, Component):
             raise PipelineValidationError(
                 f"'{type(instance)}' doesn't seem to be a component. Is this class decorated with @component?"
             )

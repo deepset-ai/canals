@@ -4,6 +4,7 @@ import pytest
 
 from canals import component
 from canals.errors import ComponentError
+from canals.component import Component
 
 
 def test_correct_declaration():
@@ -177,4 +178,4 @@ def test_component_decorator_set_it_as_component():
             return cls()
 
     comp = MockComponent()
-    assert comp.__canals_component__
+    assert isinstance(comp, Component)
