@@ -70,7 +70,7 @@
 
 import logging
 import inspect
-from typing import Protocol, Union, get_origin, get_args, runtime_checkable, Any
+from typing import Protocol, runtime_checkable, Any
 from types import new_class
 
 
