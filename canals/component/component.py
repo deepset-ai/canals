@@ -132,11 +132,11 @@ class ComponentMeta(type):
             run_signature = inspect.signature(getattr(cls, "run"))
             instance.__canals_input__ = {
                 # Create the input sockets
-                param: {
-                    "name": param,
-                    "type": run_signature.parameters[param].annotation,
-                    "is_optional": _is_optional(run_signature.parameters[param].annotation),
-                }
+                param: InputSocket(
+                    name=param,
+                    type=run_signature.parameters[param].annotation,
+                    is_optional=_is_optional(run_signature.parameters[param].annotation),
+                )
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }
 
