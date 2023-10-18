@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import get_origin, get_args
+from typing import get_origin, get_args, List, Type, Union
 import logging
 from dataclasses import dataclass, field
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class InputSocket:
     name: str
-    type: type
+    type: Type
     is_optional: bool = field(init=False)
     is_variadic: bool = field(init=False)
     sender: List[str] = field(default_factory=list)
