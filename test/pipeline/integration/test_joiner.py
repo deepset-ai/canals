@@ -5,7 +5,7 @@ from pathlib import Path
 from pprint import pprint
 
 from canals.pipeline import Pipeline
-from sample_components import AddFixedValue, Joiner
+from sample_components import StringJoiner, Hello
 
 import logging
 
@@ -14,15 +14,15 @@ logging.basicConfig(level=logging.DEBUG)
 
 def test_joiner(tmp_path):
     pipeline = Pipeline()
-    pipeline.add_component("inc", AddFixedValue(add=1))
-    pipeline.add_component("dec", AddFixedValue(add=-1))
-    pipeline.add_component("joiner", Joiner(int))
-    pipeline.connect("inc", "joiner")
-    pipeline.connect("dec", "joiner")
+    pipeline.add_component("hello_one", Hello())
+    pipeline.add_component("hello_two", Hello())
+    pipeline.add_component("joiner", StringJoiner())
+    pipeline.connect("hello_one", "joiner")
+    pipeline.connect("hello_two", "joiner")
     pipeline.draw(tmp_path / "joiner_pipeline.png")
 
-    results = pipeline.run({"inc": {"value": 4}, "dec": {"value": 11}})
-    assert results == {"joiner": {"output": [5, 10]}}
+    results = pipeline.run({"hello_one": {"word": "world"}, "hello_two": {"word": "my friend"}})
+    assert results == {"joiner": {"output": "Hello, world! Hello, my friend!"}}
 
 
 if __name__ == "__main__":

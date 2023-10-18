@@ -105,7 +105,7 @@ def _connections_status(
     for receiver_socket in receiver_sockets:
         receiver_sockets_entries.append(
             f" - {receiver_socket.name} ({_type_name(receiver_socket.type)}), "
-            f"{'sent by '+receiver_socket.sender if receiver_socket.sender else 'available'}"
+            f"{'sent by '+','.join(receiver_socket.sender) if receiver_socket.sender else 'available'}"
         )
     receiver_sockets_list = "\n".join(receiver_sockets_entries)
 
