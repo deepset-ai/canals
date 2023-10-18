@@ -16,13 +16,15 @@ def test_joiner(tmp_path):
     pipeline = Pipeline()
     pipeline.add_component("hello_one", Hello())
     pipeline.add_component("hello_two", Hello())
+    pipeline.add_component("hello_three", Hello())
     pipeline.add_component("joiner", StringJoiner())
-    pipeline.connect("hello_one", "joiner")
+    pipeline.connect("hello_one", "hello_two")
     pipeline.connect("hello_two", "joiner")
+    pipeline.connect("hello_three", "joiner")
     pipeline.draw(tmp_path / "joiner_pipeline.png")
 
-    results = pipeline.run({"hello_one": {"word": "world"}, "hello_two": {"word": "my friend"}})
-    assert results == {"joiner": {"output": "Hello, world! Hello, my friend!"}}
+    results = pipeline.run({"hello_one": {"word": "world"}, "hello_three": {"word": "my friend"}})
+    assert results == {"joiner": {"output": "Hello, my friend! Hello, Hello, world!!"}}
 
 
 if __name__ == "__main__":
