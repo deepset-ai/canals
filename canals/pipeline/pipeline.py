@@ -22,11 +22,7 @@ from canals.errors import (
     PipelineValidationError,
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
-from canals.pipeline.validation import (
-    _validate_pipeline_input,
-    _describe_pipeline_inputs,
-    _describe_pipeline_inputs_as_string,
-)
+from canals.pipeline.validation import _validate_pipeline_input, _find_pipeline_inputs
 from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
 from canals.utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
@@ -345,13 +341,12 @@ class Pipeline:
         """
         Returns a dictionary with the input names and types that this pipeline accepts.
         """
-        return _describe_pipeline_inputs(self.graph)
-
-    def print_inputs(self):
-        """
-        Prints a description of the input names and types that this pipeline accepts.
-        """
-        return _describe_pipeline_inputs_as_string(self.graph)
+        inputs = {
+            comp: {socket.name: {"type": socket.type, "is_optional": socket.is_optional} for socket in data}
+            for comp, data in _find_pipeline_inputs(self.graph).items()
+            if data
+        }
+        return inputs
 
     def draw(self, path: Path, engine: RenderingEngines = "mermaid-image") -> None:
         """
