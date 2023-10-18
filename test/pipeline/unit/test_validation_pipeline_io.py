@@ -6,7 +6,7 @@ import inspect
 from canals.pipeline import Pipeline
 from canals.errors import PipelineValidationError
 from canals.component.sockets import InputSocket, OutputSocket
-from canals.pipeline.validation import _find_pipeline_inputs, _find_pipeline_outputs
+from canals.pipeline.descriptions import _find_pipeline_inputs, _find_pipeline_outputs
 from sample_components import Double, AddFixedValue, Sum, Parity
 
 
