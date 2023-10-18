@@ -24,7 +24,7 @@ from canals.errors import (
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.validation import _validate_pipeline_input, _find_pipeline_inputs
 from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
-from canals.utils import _type_name
+from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
 logger = logging.getLogger(__name__)
@@ -89,8 +89,9 @@ class Pipeline:
             components[name] = component_to_dict(instance)
 
         connections = []
-        for sender, receiver, sockets in self.graph.edges:
-            (sender_socket, receiver_socket) = sockets.split("/")
+        for sender, receiver, edge_data in self.graph.edges.data():
+            sender_socket = edge_data["from_socket"].name
+            receiver_socket = edge_data["to_socket"].name
             connections.append(
                 {
                     "sender": f"{sender}.{sender_socket}",
@@ -207,16 +208,14 @@ class Pipeline:
             raise ValueError("'_debug' is a reserved name for debug output. Choose another name.")
 
         # Component instances must be components
-        if not hasattr(instance, "__canals_component__"):
+        if not isinstance(instance, Component):
             raise PipelineValidationError(
                 f"'{type(instance)}' doesn't seem to be a component. Is this class decorated with @component?"
             )
 
         # Create the component's input and output sockets
-        inputs = getattr(instance.run, "__canals_input__", {})
-        outputs = getattr(instance.run, "__canals_output__", {})
-        input_sockets = {name: InputSocket(**data) for name, data in inputs.items()}
-        output_sockets = {name: OutputSocket(**data) for name, data in outputs.items()}
+        input_sockets = getattr(instance, "__canals_input__", {})
+        output_sockets = getattr(instance, "__canals_output__", {})
 
         # Add component to the graph, disconnected
         logger.debug("Adding component '%s' (%s)", name, instance)
@@ -365,11 +364,6 @@ class Pipeline:
             ImportError: if `engine='graphviz'` and `pygraphviz` is not installed.
             HTTPConnectionError: (and similar) if the internet connection is down or other connection issues.
         """
-        sockets = {
-            comp: "\n".join([f"{name}: {socket}" for name, socket in data.get("input_sockets", {}).items()])
-            for comp, data in self.graph.nodes(data=True)
-        }
-        print(sockets)
         _draw(graph=networkx.MultiDiGraph(self.graph), path=path, engine=engine)
 
     def warm_up(self):
