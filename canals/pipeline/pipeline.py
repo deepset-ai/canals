@@ -430,7 +430,7 @@ class Pipeline:
                 for component_name, valid_states in self.valid_states.items()
             ]
         )
-        logger.info("\nState-transition table:\n%s\n", states_repr)
+        logger.info("\nEach component will run as soon as these values are present:\n%s\n", states_repr)
 
     def _identify_looping_inputs(self, component_name: str):
         """
