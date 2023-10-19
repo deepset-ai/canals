@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 from typing import List, Dict, Any
-from collections import OrderedDict
 import logging
 
 import networkx
@@ -36,7 +35,7 @@ def _find_pipeline_outputs(graph) -> Dict[str, List[OutputSocket]]:
     }
 
 
-def validate_pipeline_input(graph: networkx.MultiDiGraph, input_values: Dict[str, Any]) -> OrderedDict[str, Any]:
+def validate_pipeline_input(graph: networkx.MultiDiGraph, input_values: Dict[str, Any]) -> Dict[str, Any]:
     """
     Make sure the pipeline is properly built and that the input received makes sense.
     Returns the input values, validated and updated at need.

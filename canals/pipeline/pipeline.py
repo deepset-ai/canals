@@ -416,7 +416,7 @@ class Pipeline:
 
         logger.info("Pipeline execution started.")
         # Prepare the inputs buffer according to the provided data
-        inputs_buffer = OrderedDict()
+        inputs_buffer: OrderedDict = OrderedDict()
         for node_name, input_data in data.items():
             for socket_name, value in input_data.items():
                 if value is None:
