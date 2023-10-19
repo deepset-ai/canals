@@ -411,20 +411,12 @@ class Pipeline:
         #     os.makedirs("debug", exist_ok=True)
 
         data = validate_pipeline_input(self.graph, input_values=data)
-        self._clear_visits_count()
-        self.warm_up()
 
         logger.info("Pipeline execution started.")
-        # Prepare the inputs buffer according to the provided data
-        inputs_buffer: OrderedDict = OrderedDict()
-        for node_name, input_data in data.items():
-            for socket_name, value in input_data.items():
-                if value is None:
-                    continue
-                if self.graph.nodes[node_name]["input_sockets"][socket_name].is_variadic:
-                    value = [value]
-                inputs_buffer.setdefault(node_name, {})[socket_name] = value
+        inputs_buffer = self._prepare_inputs_buffer(data)
         pipeline_output: Dict[str, Dict[str, Any]] = {}
+        self._clear_visits_count()
+        self.warm_up()
 
         if debug:
             logger.info("Debug mode ON.")
@@ -801,4 +793,19 @@ class Pipeline:
                 else:
                     inputs_buffer[target_node][to_socket.name] = value_to_route
 
+        return inputs_buffer
+
+    def _prepare_inputs_buffer(self, data: Dict[str, Any]) -> OrderedDict:
+        """
+        Prepare the inputs buffer based on the parameters that were
+        passed to run()
+        """
+        inputs_buffer: OrderedDict = OrderedDict()
+        for node_name, input_data in data.items():
+            for socket_name, value in input_data.items():
+                if value is None:
+                    continue
+                if self.graph.nodes[node_name]["input_sockets"][socket_name].is_variadic:
+                    value = [value]
+                inputs_buffer.setdefault(node_name, {})[socket_name] = value
         return inputs_buffer
