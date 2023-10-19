@@ -423,6 +423,15 @@ class Pipeline:
 
             self.valid_states[component_name] = [valid_state]
 
+        longest_name = max(len(name) for name in self.graph.nodes)
+        states_repr = "\n".join(
+            [
+                f"  {component_name.ljust(longest_name)} needs {'  OR  '.join(' + '.join(s[0] + '.' + s[1] for s in state) for state in valid_states)}"
+                for component_name, valid_states in self.valid_states.items()
+            ]
+        )
+        logger.info("\nState-transition table:\n%s\n", states_repr)
+
     def _identify_looping_inputs(self, component_name: str):
         """
         Identify which of the input sockets of this component are coming from a loop and which are not.
