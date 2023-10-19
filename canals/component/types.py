@@ -1,4 +1,5 @@
-from typing import TypeVar, Annotated, TypeAlias
+from typing import TypeVar, Annotated
+from typing_extensions import TypeAlias  # Python 3.9 compatibility
 
 CANALS_VARIADIC_ANNOTATION = "__canals__variadic_t"
 
