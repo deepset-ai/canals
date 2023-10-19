@@ -11,7 +11,7 @@ class TextSplitter:
     @component.output_types(output=List[str])
     def run(self, sentence: str):
         """
-        Takes a string in input and returns "Hello, <string>!"
+        Takes a sentence in input and returns its words"
         in output.
         """
         return {"output": sentence.split()}
