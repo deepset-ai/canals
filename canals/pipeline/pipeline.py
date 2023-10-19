@@ -22,7 +22,7 @@ from canals.errors import (
     PipelineValidationError,
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
-from canals.pipeline.validation import _validate_pipeline_input
+from canals.pipeline.validation import validate_pipeline_input
 from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
 from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
@@ -410,17 +410,20 @@ class Pipeline:
         # if debug:
         #     os.makedirs("debug", exist_ok=True)
 
-        data = _validate_pipeline_input(self.graph, input_values=data)
+        data = validate_pipeline_input(self.graph, input_values=data)
         self._clear_visits_count()
         self.warm_up()
 
         logger.info("Pipeline execution started.")
-        inputs_buffer = OrderedDict(
-            {
-                node: {key: value for key, value in input_data.items() if value is not None}
-                for node, input_data in data.items()
-            }
-        )
+        # Prepare the inputs buffer according to the provided data
+        inputs_buffer = OrderedDict()
+        for node_name, input_data in data.items():
+            for socket_name, value in input_data.items():
+                if value is None:
+                    continue
+                if self.graph.nodes[node_name]["input_sockets"][socket_name].is_variadic:
+                    value = [value]
+                inputs_buffer.setdefault(node_name, {})[socket_name] = value
         pipeline_output: Dict[str, Dict[str, Any]] = {}
 
         if debug:

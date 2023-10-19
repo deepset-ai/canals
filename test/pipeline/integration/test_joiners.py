@@ -44,6 +44,19 @@ def test_joiner_with_lists(tmp_path):
     assert results == {"joiner": {"output": ["Hello", "world!", "How", "are", "you?"]}}
 
 
+def test_joiner_with_pipeline_run(tmp_path):
+    pipeline = Pipeline()
+    pipeline.add_component("hello", Hello())
+    pipeline.add_component("joiner", StringJoiner())
+    pipeline.connect("hello", "joiner")
+
+    pipeline.draw(tmp_path / "joiner_with_pipeline_run.png")
+
+    results = pipeline.run({"hello": {"word": "world"}, "joiner": {"input_str": "another string!"}})
+    assert results == {"joiner": {"output": "another string! Hello, world!"}}
+
+
 if __name__ == "__main__":
-    test_joiner(Path(__file__).parent)
-    test_joiner_with_lists(Path(__file__).parent)
+    # test_joiner(Path(__file__).parent)
+    # test_joiner_with_lists(Path(__file__).parent)
+    test_joiner_with_pipeline_run(Path(__file__).parent)
