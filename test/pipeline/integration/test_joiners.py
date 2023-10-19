@@ -57,6 +57,6 @@ def test_joiner_with_pipeline_run(tmp_path):
 
 
 if __name__ == "__main__":
-    # test_joiner(Path(__file__).parent)
-    # test_joiner_with_lists(Path(__file__).parent)
+    test_joiner(Path(__file__).parent)
+    test_joiner_with_lists(Path(__file__).parent)
     test_joiner_with_pipeline_run(Path(__file__).parent)
