@@ -525,8 +525,12 @@ class Pipeline:
 
             # Get the transition to perform
             transition = self._state_transition_function(state=tuple(state.keys()))
-            logger.debug("##### %s^ transition #####", step)
-            logger.debug("State: %s | Transition: %s", tuple(state.keys()), transition)
+            logger.debug(
+                "##### %s^ TRANSITION #####\nSTATE: %s\nTRANSITION: %s",
+                step,
+                " + ".join(sorted(f"{s[0]}.{s[1]}" for s in state.keys())),
+                transition,
+            )
 
             # Termination condition: stopping states return an empty transition
             if not transition:
