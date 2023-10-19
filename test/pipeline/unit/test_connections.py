@@ -396,11 +396,11 @@ def test_connect_many_connections_possible_no_name_matches():
     expected_message = re.escape(
         """Cannot connect 'c1' with 'c2': more than one connection is possible between these components. Please specify the connection name, like: pipeline.connect('c1.value', 'c2.value1').
 'c1':
- - value (str)
+ - value: str
 'c2':
- - value1 (str), available
- - value2 (str), available
- - value3 (str), available"""
+ - value1: str (available)
+ - value2: str (available)
+ - value3: str (available)"""
     )
 
     pipe = Pipeline()

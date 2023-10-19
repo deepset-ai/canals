@@ -24,8 +24,10 @@ class InputSocket:
         self.is_variadic = get_origin(self.type) is Variadic
         if self.is_variadic:
             # We need to "unpack" the type inside the Variadic container,
-            # otherwise the pipeline connection api will try to match "Variadic"
-            self.type = get_args(self.type)
+            # otherwise the pipeline connection api will try to match "Variadic".
+            # Note Variadic is expressed as a generic container of one type, so the
+            # return value of get_args will always be a one-item tuple.
+            self.type = get_args(self.type)[0]
 
 
 @dataclass
