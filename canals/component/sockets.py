@@ -5,7 +5,7 @@ from typing import get_origin, get_args, List, Type, Union
 import logging
 from dataclasses import dataclass, field
 
-from canals.component.types import Variadic
+from canals.component.types import CANALS_VARIADIC_ANNOTATION
 
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,17 @@ class InputSocket:
 
     def __post_init__(self):
         self.is_optional = get_origin(self.type) is Union and type(None) in get_args(self.type)
-        self.is_variadic = get_origin(self.type) is Variadic
+        try:
+            # __metadata__ is a tuple
+            self.is_variadic = self.type.__metadata__[0] == CANALS_VARIADIC_ANNOTATION
+        except AttributeError:
+            self.is_variadic = False
         if self.is_variadic:
-            # We need to "unpack" the type inside the Variadic container,
-            # otherwise the pipeline connection api will try to match "Variadic".
-            # Note Variadic is expressed as a generic container of one type, so the
-            # return value of get_args will always be a one-item tuple.
+            # We need to "unpack" the type inside the Variadic annotation,
+            # otherwise the pipeline connection api will try to match
+            # `Annotated[type, CANALS_VARIADIC_ANNOTATION]`.
+            # Note Variadic is expressed as an annotation of one single type,
+            # so the return value of get_args will always be a one-item tuple.
             self.type = get_args(self.type)[0]
 
 

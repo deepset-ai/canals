@@ -9,11 +9,8 @@ from canals.component.types import Variadic
 
 @component
 class StringJoiner:
-    def __init__(self):
-        component.set_input_types(self, input_str=Variadic[str])
-
     @component.output_types(output=str)
-    def run(self, input_str):
+    def run(self, input_str: Variadic[str]):
         """
         Take strings from multiple input nodes and join them
         into a single one returned in output. Since `input_str`
@@ -24,11 +21,8 @@ class StringJoiner:
 
 @component
 class StringListJoiner:
-    def __init__(self):
-        component.set_input_types(self, inputs=Variadic[List[str]])
-
     @component.output_types(output=str)
-    def run(self, inputs):
+    def run(self, inputs: Variadic[List[str]]):
         """
         Take list of strings from multiple input nodes and join them
         into a single one returned in output. Since `input_str`
