@@ -11,7 +11,7 @@ import networkx
 from canals.pipeline.validation import _find_pipeline_inputs, _find_pipeline_outputs
 from canals.pipeline.draw.graphviz import _to_agraph
 from canals.pipeline.draw.mermaid import _to_mermaid_image, _to_mermaid_text
-from canals.utils import _type_name
+from canals.type_utils import _type_name
 
 logger = logging.getLogger(__name__)
 RenderingEngines = Literal["graphviz", "mermaid-image", "mermaid-text"]
@@ -95,7 +95,7 @@ def _prepare_for_drawing(graph: networkx.MultiDiGraph, style_map: Dict[str, str]
     graph.add_node("input")
     for node, in_sockets in _find_pipeline_inputs(graph).items():
         for in_socket in in_sockets:
-            if in_socket.sender is None and not in_socket.is_optional:
+            if not in_socket.sender and not in_socket.is_optional:
                 # If this socket has no sender it could be a socket that receives input
                 # directly when running the Pipeline. We can't know that for sure, in doubt
                 # we draw it as receiving input directly.

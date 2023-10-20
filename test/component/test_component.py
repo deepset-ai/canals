@@ -4,6 +4,7 @@ import pytest
 
 from canals import component
 from canals.errors import ComponentError
+from canals.component import InputSocket, OutputSocket, Component
 
 
 def test_correct_declaration():
@@ -104,14 +105,7 @@ def test_set_input_types():
             return {"value": 1}
 
     comp = MockComponent()
-    assert comp.run.__canals_input__ == {
-        "value": {
-            "name": "value",
-            "type": Any,
-            "is_optional": False,
-            "has_default": False,
-        }
-    }
+    assert comp.__canals_input__ == {"value": InputSocket("value", Any)}
     assert comp.run() == {"value": 1}
 
 
@@ -132,12 +126,7 @@ def test_set_output_types():
             return {"value": 1}
 
     comp = MockComponent()
-    assert comp.run.__canals_output__ == {
-        "value": {
-            "name": "value",
-            "type": int,
-        }
-    }
+    assert comp.__canals_output__ == {"value": OutputSocket("value", int)}
 
 
 def test_output_types_decorator_with_compatible_type():
@@ -155,12 +144,7 @@ def test_output_types_decorator_with_compatible_type():
             return cls()
 
     comp = MockComponent()
-    assert comp.run.__canals_output__ == {
-        "value": {
-            "name": "value",
-            "type": int,
-        }
-    }
+    assert comp.__canals_output__ == {"value": OutputSocket("value", int)}
 
 
 def test_component_decorator_set_it_as_component():
@@ -178,4 +162,4 @@ def test_component_decorator_set_it_as_component():
             return cls()
 
     comp = MockComponent()
-    assert comp.__canals_component__
+    assert isinstance(comp, Component)

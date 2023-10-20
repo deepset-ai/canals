@@ -27,7 +27,7 @@ def test_find_pipeline_input_one_input():
     pipe.connect("comp1", "comp2")
 
     assert _find_pipeline_inputs(pipe.graph) == {
-        "comp1": [InputSocket(name="value", type=int, is_optional=False, has_default=False)],
+        "comp1": [InputSocket(name="value", type=int)],
         "comp2": [],
     }
 
@@ -40,8 +40,8 @@ def test_find_pipeline_input_two_inputs_same_component():
 
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
-            InputSocket(name="value", type=int, is_optional=False, has_default=False),
-            InputSocket(name="add", type=Optional[int], is_optional=True, has_default=True),
+            InputSocket(name="value", type=int),
+            InputSocket(name="add", type=Optional[int], has_default=True),
         ],
         "comp2": [],
     }
@@ -57,10 +57,10 @@ def test_find_pipeline_input_some_inputs_different_components():
 
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
-            InputSocket(name="value", type=int, is_optional=False, has_default=False),
-            InputSocket(name="add", type=Optional[int], is_optional=True, has_default=True),
+            InputSocket(name="value", type=int),
+            InputSocket(name="add", type=Optional[int], has_default=True),
         ],
-        "comp2": [InputSocket(name="value", type=int, is_optional=False, has_default=False)],
+        "comp2": [InputSocket(name="value", type=int)],
         "comp3": [],
     }
 
@@ -73,13 +73,13 @@ def test_find_pipeline_variable_input_nodes_in_the_pipeline():
 
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
-            InputSocket(name="value", type=int, is_optional=False, has_default=False),
-            InputSocket(name="add", type=Optional[int], is_optional=True, has_default=True),
+            InputSocket(name="value", type=int),
+            InputSocket(name="add", type=Optional[int], has_default=True),
         ],
-        "comp2": [InputSocket(name="value", type=int, is_optional=False, has_default=False)],
+        "comp2": [InputSocket(name="value", type=int)],
         "comp3": [
-            InputSocket(name="in_1", type=Optional[int], is_optional=True, has_default=False),
-            InputSocket(name="in_2", type=Optional[int], is_optional=True, has_default=False),
+            InputSocket(name="in_1", type=Optional[int]),
+            InputSocket(name="in_2", type=Optional[int]),
         ],
     }
 
@@ -174,7 +174,7 @@ def test_validate_pipeline_input_only_expected_input_is_present():
     pipe.add_component("comp1", Double())
     pipe.add_component("comp2", Double())
     pipe.connect("comp1", "comp2")
-    with pytest.raises(ValueError, match="The input value of comp2 is already sent by node comp1"):
+    with pytest.raises(ValueError, match="The input value of comp2 is already sent by: \['comp1'\]"):
         pipe.run({"comp1": {"value": 1}, "comp2": {"value": 2}})
 
 
@@ -183,7 +183,7 @@ def test_validate_pipeline_input_only_expected_input_is_present_falsy():
     pipe.add_component("comp1", Double())
     pipe.add_component("comp2", Double())
     pipe.connect("comp1", "comp2")
-    with pytest.raises(ValueError, match="The input value of comp2 is already sent by node comp1"):
+    with pytest.raises(ValueError, match="The input value of comp2 is already sent by: \['comp1'\]"):
         pipe.run({"comp1": {"value": 1}, "comp2": {"value": 0}})
 
 

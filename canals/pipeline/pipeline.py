@@ -19,9 +19,9 @@ from canals.errors import (
     PipelineValidationError,
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
-from canals.pipeline.validation import _validate_pipeline_input
+from canals.pipeline.validation import validate_pipeline_input
 from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
-from canals.utils import _type_name
+from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
 logger = logging.getLogger(__name__)
@@ -87,8 +87,9 @@ class Pipeline:
             components[name] = component_to_dict(instance)
 
         connections = []
-        for sender, receiver, sockets in self.graph.edges:
-            (sender_socket, receiver_socket) = sockets.split("/")
+        for sender, receiver, edge_data in self.graph.edges.data():
+            sender_socket = edge_data["from_socket"].name
+            receiver_socket = edge_data["to_socket"].name
             connections.append(
                 {
                     "sender": f"{sender}.{sender_socket}",
@@ -205,16 +206,14 @@ class Pipeline:
             raise ValueError("'_debug' is a reserved name for debug output. Choose another name.")
 
         # Component instances must be components
-        if not hasattr(instance, "__canals_component__"):
+        if not isinstance(instance, Component):
             raise PipelineValidationError(
                 f"'{type(instance)}' doesn't seem to be a component. Is this class decorated with @component?"
             )
 
         # Create the component's input and output sockets
-        inputs = getattr(instance.run, "__canals_input__", {})
-        outputs = getattr(instance.run, "__canals_output__", {})
-        input_sockets = {name: InputSocket(**data) for name, data in inputs.items()}
-        output_sockets = {name: OutputSocket(**data) for name, data in outputs.items()}
+        input_sockets = getattr(instance, "__canals_input__", {})
+        output_sockets = getattr(instance, "__canals_output__", {})
 
         # Add component to the graph, disconnected
         logger.debug("Adding component '%s' (%s)", name, instance)
@@ -294,9 +293,9 @@ class Pipeline:
         Directly connect socket to socket. This method does not type-check the connections: use 'Pipeline.connect()'
         instead (which uses 'find_unambiguous_connection()' to validate types).
         """
-        # Make sure the receiving socket isn't already connected - sending sockets can be connected as many times as needed,
-        # so they don't need this check
-        if to_socket.sender:
+        # Make sure the receiving socket isn't already connected, unless it's variadic. Sending sockets can be
+        # connected as many times as needed, so they don't need this check
+        if to_socket.sender and not to_socket.is_variadic:
             raise PipelineConnectError(
                 f"Cannot connect '{from_node}.{from_socket.name}' with '{to_node}.{to_socket.name}': "
                 f"{to_node}.{to_socket.name} is already connected to {to_socket.sender}.\n"
@@ -314,8 +313,8 @@ class Pipeline:
             to_socket=to_socket,
         )
 
-        # Stores the name of the node that will send its output to this socket
-        to_socket.sender = from_node
+        # Stores the name of the nodes that will send its output to this socket
+        to_socket.sender.append(from_node)
 
     def get_component(self, name: str) -> Component:
         """
@@ -352,11 +351,6 @@ class Pipeline:
             ImportError: if `engine='graphviz'` and `pygraphviz` is not installed.
             HTTPConnectionError: (and similar) if the internet connection is down or other connection issues.
         """
-        sockets = {
-            comp: "\n".join([f"{name}: {socket}" for name, socket in data.get("input_sockets", {}).items()])
-            for comp, data in self.graph.nodes(data=True)
-        }
-        print(sockets)
         _draw(graph=networkx.MultiDiGraph(self.graph), path=path, engine=engine)
 
     def warm_up(self):
@@ -440,10 +434,10 @@ class Pipeline:
         input_outside_loop = []
 
         for socket in self.graph.nodes[component_name]["input_sockets"]:
-            sender = self.graph.nodes[component_name]["input_sockets"][socket].sender
-            if sender and networkx.has_path(self.graph, component_name, sender):
-                input_from_loop.append(socket)
-            else:
+            for sender in self.graph.nodes[component_name]["input_sockets"][socket].sender:
+                if sender and networkx.has_path(self.graph, component_name, sender):
+                    input_from_loop.append(socket)
+            if socket not in input_from_loop:
                 input_outside_loop.append(socket)
         return input_from_loop, input_outside_loop
 
@@ -497,7 +491,7 @@ class Pipeline:
         if debug:
             logger.warning("Debug mode is still WIP")
 
-        data = _validate_pipeline_input(self.graph, input_values=data)
+        data = validate_pipeline_input(self.graph, input_values=data)
         self._clear_visits_count()
         self.warm_up()
         pipeline_output: Dict[str, Any] = {}
@@ -511,7 +505,7 @@ class Pipeline:
         ]
         self._compute_valid_states()
 
-        # Initial state
+        # Initial state: it is defined by the pipeline's inputs
         state: Dict[Tuple[str, str], Any] = {}
         for component_name, input_data in data.items():
             for socket, value in input_data.items():
@@ -523,28 +517,25 @@ class Pipeline:
         while True:
             step += 1
 
-            # Get the transition to perform
+            # Get the transition to perform (see _state_transition_function)
             transition = self._state_transition_function(state=tuple(state.keys()))
-            logger.debug(
-                "##### %s^ TRANSITION #####\nSTATE: %s\nTRANSITION: %s",
-                step,
-                " + ".join(sorted(f"{s[0]}.{s[1]}" for s in state.keys())),
-                transition,
-            )
+            logger.debug("##### %s^ TRANSITION #####", step)
+            logger.debug(" STATE: %s", " + ".join(sorted(f"{s[0]}.{s[1]}" for s in state)))
+            logger.debug(" TRANSITION: %s", transition)
 
-            # Termination condition: stopping states return an empty transition
+            # Termination: stopping states return an empty transition
             if not transition:
-                logger.debug("   --X This is a stopping state.")
+                logger.debug("   --X This is a stopping state. Pipeline execution terminated.")
                 break
 
-            # Apply the transition to get to the next state
+            # Apply the transition to get to the next state (see _apply_transition)
             output: Dict[str, Any]
             state, output = self._apply_transition(state, transition, connections)
             pipeline_output = {**pipeline_output, **output}
 
         logger.info("Pipeline executed successfully.")
 
-        # Clean up output dictionary from None values
+        # Clean up output dictionary from None values: they normally come from branches that didn't run.
         clean_output = {}
         for component_name, outputs in pipeline_output.items():
             if not all(value is None for value in outputs.values()):
@@ -556,7 +547,19 @@ class Pipeline:
         self, state: Dict[Tuple[str, str], Any], transition: List[str], connections: List[Tuple[str, str, str, str]]
     ) -> Tuple[Dict[Tuple[str, str], Any], Dict[str, Any]]:
         """
-        Given the current state of the pipeline, compute the next state. Returns a Tuple with (state, output)
+        Given the current state of the pipeline, compute the next state. Returns a Tuple with (state, output).
+
+        A "transition" is a set of component's run() methods that are ready to run, because all the inptus they need
+        are present in the "state" of the pipeline (the first parameter of this function).
+        They can be run in any order, as long as they are all run before the next transition is started.
+
+        :param state: the current state of the pipeline, as a dictionary of (component, socket) -> value
+        :param transition: the list of components that are ready to run
+        :param connections: the list of all the connections in the pipeline. This is needed to translate output sockets
+            into input sockets for the receiving components
+        :return: a tuple of (state, output), where "state" is the next state of the pipeline and "output" is the
+            data that is part of the Pipeline's global output (the values that return to the user at the end of the
+            execution).
         """
         output: Dict[str, Any] = {}
         next_state = state
