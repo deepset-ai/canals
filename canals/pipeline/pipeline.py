@@ -22,7 +22,7 @@ from canals.errors import (
     PipelineValidationError,
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
-from canals.pipeline.validation import _validate_pipeline_input, _find_pipeline_inputs
+from canals.pipeline.validation import validate_pipeline_input, _find_pipeline_inputs
 from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
 from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict

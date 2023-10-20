@@ -7,13 +7,14 @@ import logging
 import networkx
 
 from canals.errors import PipelineValidationError
+from canals.component.sockets import InputSocket
 from canals.pipeline.descriptions import _find_pipeline_inputs, _describe_pipeline_inputs_as_string
 
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_pipeline_input(graph: networkx.MultiDiGraph, input_values: Dict[str, Any]) -> Dict[str, Any]:
+def validate_pipeline_input(graph: networkx.MultiDiGraph, input_values: Dict[str, Any]) -> Dict[str, Any]:
     """
     Make sure the pipeline is properly built and that the input received makes sense.
     Returns the input values, validated and updated at need.
