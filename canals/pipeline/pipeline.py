@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Optional, Any, Dict, List, Union, Tuple
+from typing import Optional, Any, Dict, List, Union, Tuple, TypeVar, Type
 
 import datetime
 import logging
@@ -36,6 +36,11 @@ from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
 logger = logging.getLogger(__name__)
+
+# We use a generic type to annotate the return value of classmethods,
+# so that static analyzers won't be confused when derived classes
+# use those methods.
+T = TypeVar("T", bound="Pipeline")
 
 
 class Pipeline:
@@ -114,12 +119,7 @@ class Pipeline:
         for sender, receiver, edge_data in self.graph.edges.data():
             sender_socket = edge_data["from_socket"].name
             receiver_socket = edge_data["to_socket"].name
-            connections.append(
-                {
-                    "sender": f"{sender}.{sender_socket}",
-                    "receiver": f"{receiver}.{receiver_socket}",
-                }
-            )
+            connections.append({"sender": f"{sender}.{sender_socket}", "receiver": f"{receiver}.{receiver_socket}"})
         return {
             "metadata": self.metadata,
             "max_loops_allowed": self.max_loops_allowed,
@@ -128,7 +128,7 @@ class Pipeline:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], **kwargs) -> "Pipeline":
+    def from_dict(cls: Type[T], data: Dict[str, Any], **kwargs) -> T:
         """
         Creates a Pipeline instance from a dictionary.
         A sample `data` dictionary could be formatted like so:
@@ -162,11 +162,7 @@ class Pipeline:
         metadata = data.get("metadata", {})
         max_loops_allowed = data.get("max_loops_allowed", 100)
         debug_path = Path(data.get("debug_path", ".canals_debug/"))
-        pipe = cls(
-            metadata=metadata,
-            max_loops_allowed=max_loops_allowed,
-            debug_path=debug_path,
-        )
+        pipe = cls(metadata=metadata, max_loops_allowed=max_loops_allowed, debug_path=debug_path)
         components_to_reuse = kwargs.get("components", {})
         for name, component_data in data.get("components", {}).items():
             if name in components_to_reuse:
@@ -231,11 +227,7 @@ class Pipeline:
         # Add component to the graph, disconnected
         logger.debug("Adding component '%s' (%s)", name, instance)
         self.graph.add_node(
-            name,
-            instance=instance,
-            input_sockets=input_sockets,
-            output_sockets=output_sockets,
-            visits=0,
+            name, instance=instance, input_sockets=input_sockets, output_sockets=output_sockets, visits=0
         )
 
     def connect(self, connect_from: str, connect_to: str) -> None:
