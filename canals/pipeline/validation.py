@@ -72,6 +72,6 @@ def _validate_nodes_receive_only_expected_input(graph: networkx.MultiDiGraph, in
                     f"Component {node} is not expecting any input value called {socket_name}.\n\n{all_inputs}",
                 )
 
-            sender = graph.nodes[node]["input_sockets"][socket_name].sender
-            if sender:
-                raise ValueError(f"The input {socket_name} of {node} is already sent by node {sender}")
+            input_socket: InputSocket = graph.nodes[node]["input_sockets"][socket_name]
+            if input_socket.sender and not input_socket.is_variadic:
+                raise ValueError(f"The input {socket_name} of {node} is already sent by: {input_socket.sender}")
