@@ -20,7 +20,18 @@ from canals.errors import (
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.validation import validate_pipeline_input
-from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
+from canals.pipeline.state_transitions import (
+    compute_valid_states,
+    state_transition_function,
+    identify_looping_outputs,
+    State,
+    Transition,
+    MinimalValidState,
+)
+from canals.pipeline.connections import (
+    parse_connection,
+    _find_unambiguous_connection,
+)
 from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
@@ -53,7 +64,7 @@ class Pipeline:
         self.metadata = metadata or {}
         self.max_loops_allowed = max_loops_allowed
         self.graph = networkx.MultiDiGraph()
-        self.valid_states: Dict[str, List[List[Tuple[str, str]]]] = {}
+        self.valid_states: Dict[str, List[MinimalValidState]] = {}
         self.debug: Dict[int, Dict[str, Any]] = {}
         self.debug_path = Path(debug_path)
 
@@ -76,6 +87,20 @@ class Pipeline:
             and self._comparable_nodes_list(self.graph) == self._comparable_nodes_list(other.graph)
             and self.graph.graph == other.graph.graph
         )
+
+    def _comparable_nodes_list(self, graph: networkx.MultiDiGraph) -> List[Dict[str, Any]]:
+        """
+        Replaces instances of components with their class name in order to make sure they're comparable.
+
+        This is a helper method for `__eq__`.
+        """
+        nodes = []
+        for node in graph.nodes:
+            comparable_node = graph.nodes[node]
+            comparable_node["instance"] = comparable_node["instance"].__class__
+            nodes.append(comparable_node)
+        nodes.sort()
+        return nodes
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -167,24 +192,13 @@ class Pipeline:
 
         return pipe
 
-    def _comparable_nodes_list(self, graph: networkx.MultiDiGraph) -> List[Dict[str, Any]]:
-        """
-        Replaces instances of nodes with their class name in order to make sure they're comparable.
-        """
-        nodes = []
-        for node in graph.nodes:
-            comparable_node = graph.nodes[node]
-            comparable_node["instance"] = comparable_node["instance"].__class__
-            nodes.append(comparable_node)
-        nodes.sort()
-        return nodes
-
     def add_component(self, name: str, instance: Component) -> None:
         """
-        Create a component for the given component. Components are not connected to anything by default:
+        Create a node in the graph for the given component. Components are not connected to anything by default:
         use `Pipeline.connect()` to connect components together.
 
-        Component names must be unique, but component instances can be reused if needed.
+        Component names must be unique, and `_debug` is a reserved name. If `instance` is not a Canals component,
+        a `PipelineValidationError` is raised.
 
         Args:
             name: the name of the component.
@@ -194,7 +208,7 @@ class Pipeline:
             None
 
         Raises:
-            ValueError: if a component with the same name already exists
+            ValueError: if a component with the same name already exists or if the name is `_debug`.
             PipelineValidationError: if the given instance is not a Canals component
         """
         # Component names are unique
@@ -290,7 +304,7 @@ class Pipeline:
 
     def _direct_connect(self, from_node: str, from_socket: OutputSocket, to_node: str, to_socket: InputSocket) -> None:
         """
-        Directly connect socket to socket. This method does not type-check the connections: use 'Pipeline.connect()'
+        Directly connect socket to socket. This method DOES NOT type-check the connections: use 'Pipeline.connect()'
         instead (which uses 'find_unambiguous_connection()' to validate types).
         """
         # Make sure the receiving socket isn't already connected, unless it's variadic. Sending sockets can be
@@ -318,7 +332,7 @@ class Pipeline:
 
     def get_component(self, name: str) -> Component:
         """
-        Returns an instance of a component.
+        Returns an instance of a component by name.
 
         Args:
             name: the name of the component
@@ -358,7 +372,7 @@ class Pipeline:
         Make sure all nodes are warm.
 
         It's the node's responsibility to make sure this method can be called at every `Pipeline.run()`
-        without re-initializing everything.
+        without re-initializations.
         """
         for node in self.graph.nodes:
             if hasattr(self.graph.nodes[node]["instance"], "warm_up"):
@@ -393,86 +407,6 @@ class Pipeline:
                 f"Maximum loops count ({self.max_loops_allowed}) exceeded for component '{component_name}'."
             )
 
-    def _compute_valid_states(self):
-        """
-        Returns a list of all the valid minimal states that would lead to a specific component to run.
-        These tuples are used by `_state_transition_function()` with `issubset()` to compute the next transition.
-        """
-        self.valid_states = {}
-        for component_name in self.graph.nodes:
-            input_from_loop, input_outside_loop = self._identify_looping_inputs(component_name)
-            if input_from_loop and input_outside_loop:
-                # Is a loop merger, so it has two valid states, one for the loop and one for the external input
-                self.valid_states[component_name] = [
-                    [(component_name, socket) for socket in input_from_loop],
-                    [(component_name, socket) for socket in input_outside_loop],
-                ]
-                continue
-
-            # It's a regular component, so it has one minimum valid state only
-            valid_state = []
-            for socket_name, socket in self.graph.nodes[component_name]["input_sockets"].items():
-                if not socket.has_default:
-                    valid_state.append((component_name, socket_name))
-
-            self.valid_states[component_name] = [valid_state]
-
-        longest_name = max(len(name) for name in self.graph.nodes)
-        states_repr = "\n".join(
-            [
-                f"  {component_name.ljust(longest_name)} needs {'  OR  '.join(' + '.join(s[0] + '.' + s[1] for s in state) for state in valid_states)}"
-                for component_name, valid_states in self.valid_states.items()
-            ]
-        )
-        logger.info("\nEach component will run as soon as these values are present:\n%s\n", states_repr)
-
-    def _identify_looping_inputs(self, component_name: str):
-        """
-        Identify which of the input sockets of this component are coming from a loop and which are not.
-        """
-        input_from_loop = []
-        input_outside_loop = []
-
-        for socket in self.graph.nodes[component_name]["input_sockets"]:
-            for sender in self.graph.nodes[component_name]["input_sockets"][socket].sender:
-                if sender and networkx.has_path(self.graph, component_name, sender):
-                    input_from_loop.append(socket)
-            if socket not in input_from_loop:
-                input_outside_loop.append(socket)
-        return input_from_loop, input_outside_loop
-
-    def _identify_looping_outputs(self, component_name: str):
-        """
-        Identify which of the output sockets of this component are going into a loop and which are not.
-        """
-        output_to_loop = []
-        output_outside_loop = []
-
-        for socket in self.graph.nodes[component_name]["output_sockets"]:
-            for _, to_node, _ in self.graph.out_edges(component_name, keys=True):
-                if to_node and networkx.has_path(self.graph, to_node, component_name):
-                    output_to_loop.append(socket)
-                else:
-                    output_outside_loop.append(socket)
-
-        return output_to_loop, output_outside_loop
-
-    def _state_transition_function(self, state: Tuple[Tuple[str, str], ...]) -> List[str]:
-        """
-        Given the current state as a list of tuples of (component, socket), returns the transition to perform
-        as list of components that should run.
-
-        Args:
-            current_state (Tuple[Tuple[str, str]]): the current state as a list of tuples of (component, socket)
-        """
-        transition = []
-        for component_name in self.graph.nodes:
-            for valid_state in self.valid_states[component_name]:
-                if set(valid_state).issubset(set(state)):
-                    transition.append(component_name)
-
-        return transition
-
     def run(self, data: Dict[str, Any], debug: bool = False) -> Dict[str, Any]:  # pylint: disable=too-many-locals
         """
         Runs the pipeline.
@@ -503,10 +437,10 @@ class Pipeline:
             (from_node, sockets.split("/")[0], to_node, sockets.split("/")[1])
             for from_node, to_node, sockets in self.graph.edges
         ]
-        self._compute_valid_states()
+        self.valid_states = compute_valid_states(self.graph)
 
         # Initial state: it is defined by the pipeline's inputs
-        state: Dict[Tuple[str, str], Any] = {}
+        state: State = {}
         for component_name, input_data in data.items():
             for socket, value in input_data.items():
                 if value is not None:
@@ -518,7 +452,7 @@ class Pipeline:
             step += 1
 
             # Get the transition to perform (see _state_transition_function)
-            transition = self._state_transition_function(state=tuple(state.keys()))
+            transition = state_transition_function(self.graph, self.valid_states, current_state=tuple(state.keys()))
             logger.debug("##### %s^ TRANSITION #####", step)
             logger.debug(" STATE: %s", " + ".join(sorted(f"{s[0]}.{s[1]}" for s in state)))
             logger.debug(" TRANSITION: %s", transition)
@@ -544,8 +478,8 @@ class Pipeline:
         return clean_output
 
     def _apply_transition(
-        self, state: Dict[Tuple[str, str], Any], transition: List[str], connections: List[Tuple[str, str, str, str]]
-    ) -> Tuple[Dict[Tuple[str, str], Any], Dict[str, Any]]:
+        self, state: State, transition: Transition, connections: List[Tuple[str, str, str, str]]
+    ) -> Tuple[State, Dict[str, Any]]:
         """
         Given the current state of the pipeline, compute the next state. Returns a Tuple with (state, output).
 
@@ -597,7 +531,7 @@ class Pipeline:
 
                 # Otherwise, assign the values to the next state
                 for target in target_states:
-                    if all(self._identify_looping_outputs(component_name)) and value is None:
+                    if all(identify_looping_outputs(self.graph, component_name)) and value is None:
                         logger.debug("   --X Loop decision nodes do not propagate None values.")
                     else:
                         next_state[target] = value
