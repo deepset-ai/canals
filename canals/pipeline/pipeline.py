@@ -64,7 +64,6 @@ class Pipeline:
         self.metadata = metadata or {}
         self.max_loops_allowed = max_loops_allowed
         self.graph = networkx.MultiDiGraph()
-        self.valid_states: Dict[str, List[MinimalValidState]] = {}
         self.debug: Dict[int, Dict[str, Any]] = {}
         self.debug_path = Path(debug_path)
 
@@ -411,16 +410,64 @@ class Pipeline:
         """
         Runs the pipeline.
 
+        Pipelines are executed as Finite State Machines (FSM). In this context, we define:
+
+        - state unit: a (component name, socket name) pair. In this tuple, the component name always refers to the
+            component that uses the value, not the component that produces it. The same happens for the socket name:
+            the pair always contains the name of the input socket, not the output one. Note: such translation is
+            performed in `Pipeline._apply_transition()`. State units are represented by the `StateUnit` type.
+
+        - state: the pipeline's state is a dictionary of `{state unit: value}`. It contains all the values that
+            are available to the pipeline's component at a given step of the execution. It is represented by the `State`
+            type.
+
+        - minimal valid state: the minimal set of inputs (expressed as a list of `StateUnit`) that allow a specific
+            component to run. Note that this list never includes inputs that are not "waited for": they will be present
+            in the component's input if they arrived in time, but won't be considered when checking if the component
+            can run. Most components have a single minimal valid state, but some (for example loop mergers) may have
+            more than one. See `compute_valid_states()`. Minimal valid states are represented by the
+            `MinimalValidState` type.
+
+        - transition: a transition is a list of components that are ready to run. "Ready to run" means that the
+            pipeline's state contains a combination of the values that the component needs for its `run()` method.
+            Transitions are represented by the `Transition` type.
+
+        At the start, the pipeline is in the "initial state", which is defined by the pipeline's inputs.
+
+        Before entering the execution loop, Pipeline computes what are the minimal valid states for each component.
+
+        The pipeline then enters the execution loop, where each iteration is a "transition". The transition is computed
+        by the `_state_transition_function` function, which returns a list of components that are ready to run.
+        Computing the state transition means checking how many minimal valid states are included in the current state
+        and adding the respective components to the transition.
+
+        Transitions can be empty: these represents a stopping state. If one is encountered, the pipeline stops and
+        returns all the output generated so far to the user.
+
+        Once the transition is computed, the pipeline runs all the components in the transition. The order in which
+        they are run is not important, as long as they are all run before the next transition is started. The output
+        of each component is then used to build the next pipeline state of the pipeline by translating the
+        `producing component, output socket` tuples into `receiving component, input socket` and storing the results
+        in the `state` dictionary. This translation is performed by `Pipeline._apply_transition()`.
+
+        If there is no possible translation for a `producing component, output socket` tuple (because that output
+        socket is not connected to any other component), its content is stored into the output dictionary and becomes
+        part of the pipeline's output.
+
+        In the end, the pipeline returns the `output` dictionary to the user. Note that `None` outputs are cleaned up
+        before returning the dictionary to the user.
+
         Args:
-            data: the inputs to give to the input components of the Pipeline.
-            parameters: a dictionary with all the parameters of all the components, namespaced by component.
+            data: the inputs to give to the input components of the Pipeline. It should look like
+            `{"component": {"value": 5} "component2": {"another_value": "hello"}}`
             debug: whether to collect and return debug information.
 
         Returns:
-            A dictionary with the outputs of the output components of the Pipeline.
+            A dictionary with the outputs of the output components of the Pipeline. Example of such output is
+            `{"sum": {"result": 5}}`.
 
         Raises:
-            PipelineRuntimeError: if the any of the components fail or return unexpected output.
+            PipelineRuntimeError: if the any of the components fails or return unexpected output.
         """
         if debug:
             logger.warning("Debug mode is still WIP")
@@ -432,34 +479,39 @@ class Pipeline:
 
         logger.info("Pipeline execution started.")
 
-        # List all the input/output socket pairs - for quicker access
-        connections = [
-            (from_node, sockets.split("/")[0], to_node, sockets.split("/")[1])
-            for from_node, to_node, sockets in self.graph.edges
-        ]
-        self.valid_states = compute_valid_states(self.graph)
-
         # Initial state: it is defined by the pipeline's inputs
         state: State = {}
         for component_name, input_data in data.items():
             for socket, value in input_data.items():
                 if value is not None:
+                    # Wrap variadic inputs into lists
+                    if self.graph.nodes[component_name]["input_sockets"][socket].is_variadic:
+                        value = [value]
                     state[(component_name, socket)] = value
+
+        # List all the input/output socket pairs - for quicker access
+        connections = [
+            (from_node, sockets.split("/")[0], to_node, sockets.split("/")[1])
+            for from_node, to_node, sockets in self.graph.edges
+        ]
+
+        # Compute the valid states for each component
+        valid_states: Dict[str, List[MinimalValidState]] = compute_valid_states(self.graph)
 
         # Execution loop
         step = 0
         while True:
             step += 1
 
-            # Get the transition to perform (see _state_transition_function)
-            transition = state_transition_function(self.graph, self.valid_states, current_state=tuple(state.keys()))
+            # Get the transition to perform (see state_transition_function())
+            transition = state_transition_function(self.graph, valid_states, current_state=tuple(state.keys()))
             logger.debug("##### %s^ TRANSITION #####", step)
-            logger.debug(" STATE: %s", " + ".join(sorted(f"{s[0]}.{s[1]}" for s in state)))
-            logger.debug(" TRANSITION: %s", transition)
+            logger.debug(" State: %s", " + ".join(sorted(f"{s[0]}.{s[1]}" for s in state)))
+            logger.debug(" Transition: %s", transition)
 
             # Termination: stopping states return an empty transition
             if not transition:
-                logger.debug("   --X This is a stopping state. Pipeline execution terminated.")
+                logger.debug("   --X This is a stopping state.")
                 break
 
             # Apply the transition to get to the next state (see _apply_transition)
@@ -481,30 +533,38 @@ class Pipeline:
         self, state: State, transition: Transition, connections: List[Tuple[str, str, str, str]]
     ) -> Tuple[State, Dict[str, Any]]:
         """
-        Given the current state of the pipeline, compute the next state. Returns a Tuple with (state, output).
+        Given the current state of the pipeline, compute the next state. Returns a Tuple of
+        `(pipeline state, pipeline output)`.
 
-        A "transition" is a set of component's run() methods that are ready to run, because all the inptus they need
-        are present in the "state" of the pipeline (the first parameter of this function).
-        They can be run in any order, as long as they are all run before the next transition is started.
+        A "transition" is a set of components that are ready to run, because all the inptus they need are present in
+        the "state" of the pipeline (the first parameter of this function). They can be run in any order, as long as
+        they are all run before the next transition is started.
 
-        :param state: the current state of the pipeline, as a dictionary of (component, socket) -> value
-        :param transition: the list of components that are ready to run
-        :param connections: the list of all the connections in the pipeline. This is needed to translate output sockets
-            into input sockets for the receiving components
-        :return: a tuple of (state, output), where "state" is the next state of the pipeline and "output" is the
+        See the docstring of the `Pipeline.run()` method for more information about the execution model.
+
+        Args:
+            state: the current state of the pipeline, as a dictionary of (component, socket) -> value
+            transition: the list of components that are ready to run
+            connections: the list of all the connections in the pipeline. This is needed to translate output sockets
+                into input sockets for the receiving components
+
+        Returns:
+            a tuple of (pipeline state, pipeline output), where "state" is the next state of the pipeline and "output" is the
             data that is part of the Pipeline's global output (the values that return to the user at the end of the
             execution).
         """
         output: Dict[str, Any] = {}
         next_state = state
 
-        # Process all the component in this transition independently ("parallel branch execution")
+        # Process all the component in this transition independently
         for component_name in transition:
             # Extract from the general state only the inputs for this component
-            component_inputs = {state[1]: value for state, value in state.items() if state[0] == component_name}
+            component_inputs = {
+                socket: value for (component, socket), value in state.items() if component == component_name
+            }
 
-            # Once an input is being used, remove it from the machine's state.
-            # Leftover state will be carried over ("waiting for components")
+            # Once an input is used, remove it from the state.
+            # Leftover state will be carried over to the next state.
             for used_input in component_inputs.keys():
                 del next_state[(component_name, used_input)]
 
@@ -514,34 +574,61 @@ class Pipeline:
                 inputs=component_inputs,
             )
 
-            # Translate output sockets into input sockets - builds the next state
+            # Translate output sockets into input sockets to build the next state
             for socket, value in output_values.items():
-                target_states = [
-                    (to_node, to_socket)
-                    for from_node, from_socket, to_node, to_socket in connections
-                    if from_node == component_name and from_socket == socket
-                ]
-
-                # If the sockets are dangling, this value is an output
-                if not target_states:
-                    if component_name not in output:
-                        output[component_name] = {}
-                    output[component_name][socket] = value
-                    logger.debug(" - '%s.%s' goes to the output with value '%s'", component_name, socket, value)
-
-                # Otherwise, assign the values to the next state
-                for target in target_states:
-                    if all(identify_looping_outputs(self.graph, component_name)) and value is None:
-                        logger.debug("   --X Loop decision nodes do not propagate None values.")
-                    else:
-                        next_state[target] = value
-                        logger.debug("   --> '%s.%s' received '%s'", target[0], target[1], value)
+                next_state = self._translate_output_state_to_input_state(
+                    value, component_name, socket, connections, next_state, output
+                )
 
         return next_state, output
+
+    def _translate_output_state_to_input_state(
+        self,
+        value: Any,
+        component_name: str,
+        socket: str,
+        connections: List[Tuple[str, str, str, str]],
+        next_state: State,
+        output: Dict[str, Any],
+    ):
+        target_states = [
+            (to_node, to_socket)
+            for from_node, from_socket, to_node, to_socket in connections
+            if from_node == component_name and from_socket == socket
+        ]
+
+        # If the sockets are dangling, this value is an output
+        if not target_states:
+            if component_name not in output:
+                output[component_name] = {}
+            output[component_name][socket] = value
+            logger.debug(" - '%s.%s' goes to the output with value '%s'", component_name, socket, value)
+
+        # Otherwise, assign the values to the next state
+        for target in target_states:
+            if all(identify_looping_outputs(self.graph, component_name)) and value is None:
+                logger.debug("   --X Loop decision nodes do not propagate None values.")
+            else:
+                # If the socket was marked as variadic, pile up inputs in a list
+                is_variadic = self.graph.nodes[target[0]]["input_sockets"][target[1]].is_variadic
+                if is_variadic:
+                    if target not in next_state:
+                        next_state[target] = []
+                    next_state[target].append(value)
+                # Non-variadic input: just store the value
+                else:
+                    next_state[target] = value
+
+                logger.debug("   --> '%s.%s' received '%s'", target[0], target[1], value)
+
+        return next_state
 
     def _run_component(self, name: str, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Once we're confident this component is ready to run, run it and collect the output.
+
+        This method performs some additional checks, such as checking that max_loops is respected, that the component
+        produced a dictionary, and so on.
         """
         self._check_max_loops(name)
         self.graph.nodes[name]["visits"] += 1
