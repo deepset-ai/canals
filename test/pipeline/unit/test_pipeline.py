@@ -11,6 +11,7 @@ from canals.component.sockets import InputSocket, OutputSocket
 from canals.errors import PipelineMaxLoops, PipelineError, PipelineRuntimeError
 from sample_components import AddFixedValue, Threshold, MergeLoop, Double
 from canals.testing.factory import component_class
+from canals.component.types import IsOptional
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -110,7 +111,7 @@ def test_from_dict():
     assert add_two["instance"].add == 2
     assert add_two["input_sockets"] == {
         "value": InputSocket(name="value", type=int),
-        "add": InputSocket(name="add", type=Optional[int]),
+        "add": InputSocket(name="add", type=IsOptional[int]),
     }
     assert add_two["output_sockets"] == {
         "result": OutputSocket(name="result", type=int),
@@ -122,7 +123,7 @@ def test_from_dict():
     assert add_default["instance"].add == 1
     assert add_default["input_sockets"] == {
         "value": InputSocket(name="value", type=int, sender=["double"]),
-        "add": InputSocket(name="add", type=Optional[int]),
+        "add": InputSocket(name="add", type=IsOptional[int]),
     }
     assert add_default["output_sockets"] == {
         "result": OutputSocket(name="result", type=int),
@@ -202,7 +203,7 @@ def test_from_dict_with_components_instances():
     assert add_two_data["instance"].add == 2
     assert add_two_data["input_sockets"] == {
         "value": InputSocket(name="value", type=int),
-        "add": InputSocket(name="add", type=Optional[int]),
+        "add": InputSocket(name="add", type=IsOptional[int]),
     }
     assert add_two_data["output_sockets"] == {
         "result": OutputSocket(name="result", type=int),
@@ -215,7 +216,7 @@ def test_from_dict_with_components_instances():
     assert add_default_data["instance"].add == 1
     assert add_default_data["input_sockets"] == {
         "value": InputSocket(name="value", type=int, sender=["double"]),
-        "add": InputSocket(name="add", type=Optional[int]),
+        "add": InputSocket(name="add", type=IsOptional[int]),
     }
     assert add_default_data["output_sockets"] == {
         "result": OutputSocket(name="result", type=int),

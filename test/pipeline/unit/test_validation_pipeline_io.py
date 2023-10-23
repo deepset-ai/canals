@@ -8,6 +8,7 @@ from canals.errors import PipelineValidationError
 from canals.component.sockets import InputSocket, OutputSocket
 from canals.pipeline.validation import _find_pipeline_inputs, _find_pipeline_outputs
 from sample_components import Double, AddFixedValue, Sum, Parity
+from canals.component.types import IsOptional
 
 
 def test_find_pipeline_input_no_input():
@@ -41,7 +42,7 @@ def test_find_pipeline_input_two_inputs_same_component():
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
-            InputSocket(name="add", type=Optional[int]),
+            InputSocket(name="add", type=IsOptional[int]),
         ],
         "comp2": [],
     }
@@ -58,7 +59,7 @@ def test_find_pipeline_input_some_inputs_different_components():
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
-            InputSocket(name="add", type=Optional[int]),
+            InputSocket(name="add", type=IsOptional[int]),
         ],
         "comp2": [InputSocket(name="value", type=int)],
         "comp3": [],
@@ -74,12 +75,12 @@ def test_find_pipeline_variable_input_nodes_in_the_pipeline():
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
-            InputSocket(name="add", type=Optional[int]),
+            InputSocket(name="add", type=IsOptional[int]),
         ],
         "comp2": [InputSocket(name="value", type=int)],
         "comp3": [
-            InputSocket(name="in_1", type=Optional[int]),
-            InputSocket(name="in_2", type=Optional[int]),
+            InputSocket(name="in_1", type=IsOptional[int]),
+            InputSocket(name="in_2", type=IsOptional[int]),
         ],
     }
 

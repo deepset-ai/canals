@@ -1,18 +1,19 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import List, Any, Optional, Dict
+from typing import List, Any, Dict
 import sys
 
 from canals import component
 from canals.errors import DeserializationError
 from canals.serialization import default_to_dict
+from canals.component.types import IsOptional
 
 
 @component
 class MergeLoop:
     def __init__(self, expected_type: Any, inputs: List[str]):
-        component.set_input_types(self, **{input_name: Optional[expected_type] for input_name in inputs})
+        component.set_input_types(self, **{input_name: IsOptional[expected_type] for input_name in inputs})  # type: ignore
         component.set_output_types(self, value=expected_type)
 
         if expected_type.__module__ == "builtins":
