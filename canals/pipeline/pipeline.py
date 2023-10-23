@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Optional, Any, Dict, List, Literal, Union
+from typing import Optional, Any, Dict, List, Literal, Union, TypeVar, Type
 
 import os
 import json
@@ -22,12 +22,17 @@ from canals.errors import (
     PipelineValidationError,
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
-from canals.pipeline.validation import _validate_pipeline_input
+from canals.pipeline.validation import validate_pipeline_input
 from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
-from canals.utils import _type_name
+from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
 logger = logging.getLogger(__name__)
+
+# We use a generic type to annotate the return value of classmethods,
+# so that static analyzers won't be confused when derived classes
+# use those methods.
+T = TypeVar("T", bound="Pipeline")
 
 
 class Pipeline:
@@ -89,14 +94,10 @@ class Pipeline:
             components[name] = component_to_dict(instance)
 
         connections = []
-        for sender, receiver, sockets in self.graph.edges:
-            (sender_socket, receiver_socket) = sockets.split("/")
-            connections.append(
-                {
-                    "sender": f"{sender}.{sender_socket}",
-                    "receiver": f"{receiver}.{receiver_socket}",
-                }
-            )
+        for sender, receiver, edge_data in self.graph.edges.data():
+            sender_socket = edge_data["from_socket"].name
+            receiver_socket = edge_data["to_socket"].name
+            connections.append({"sender": f"{sender}.{sender_socket}", "receiver": f"{receiver}.{receiver_socket}"})
         return {
             "metadata": self.metadata,
             "max_loops_allowed": self.max_loops_allowed,
@@ -105,7 +106,7 @@ class Pipeline:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], **kwargs) -> "Pipeline":
+    def from_dict(cls: Type[T], data: Dict[str, Any], **kwargs) -> T:
         """
         Creates a Pipeline instance from a dictionary.
         A sample `data` dictionary could be formatted like so:
@@ -139,11 +140,7 @@ class Pipeline:
         metadata = data.get("metadata", {})
         max_loops_allowed = data.get("max_loops_allowed", 100)
         debug_path = Path(data.get("debug_path", ".canals_debug/"))
-        pipe = cls(
-            metadata=metadata,
-            max_loops_allowed=max_loops_allowed,
-            debug_path=debug_path,
-        )
+        pipe = cls(metadata=metadata, max_loops_allowed=max_loops_allowed, debug_path=debug_path)
         components_to_reuse = kwargs.get("components", {})
         for name, component_data in data.get("components", {}).items():
             if name in components_to_reuse:
@@ -207,25 +204,19 @@ class Pipeline:
             raise ValueError("'_debug' is a reserved name for debug output. Choose another name.")
 
         # Component instances must be components
-        if not hasattr(instance, "__canals_component__"):
+        if not isinstance(instance, Component):
             raise PipelineValidationError(
                 f"'{type(instance)}' doesn't seem to be a component. Is this class decorated with @component?"
             )
 
         # Create the component's input and output sockets
-        inputs = getattr(instance.run, "__canals_input__", {})
-        outputs = getattr(instance.run, "__canals_output__", {})
-        input_sockets = {name: InputSocket(**data) for name, data in inputs.items()}
-        output_sockets = {name: OutputSocket(**data) for name, data in outputs.items()}
+        input_sockets = getattr(instance, "__canals_input__", {})
+        output_sockets = getattr(instance, "__canals_output__", {})
 
         # Add component to the graph, disconnected
         logger.debug("Adding component '%s' (%s)", name, instance)
         self.graph.add_node(
-            name,
-            instance=instance,
-            input_sockets=input_sockets,
-            output_sockets=output_sockets,
-            visits=0,
+            name, instance=instance, input_sockets=input_sockets, output_sockets=output_sockets, visits=0
         )
 
     def connect(self, connect_from: str, connect_to: str) -> None:
@@ -296,9 +287,9 @@ class Pipeline:
         Directly connect socket to socket. This method does not type-check the connections: use 'Pipeline.connect()'
         instead (which uses 'find_unambiguous_connection()' to validate types).
         """
-        # Make sure the receiving socket isn't already connected - sending sockets can be connected as many times as needed,
-        # so they don't need this check
-        if to_socket.sender:
+        # Make sure the receiving socket isn't already connected, unless it's variadic. Sending sockets can be
+        # connected as many times as needed, so they don't need this check
+        if to_socket.sender and not to_socket.is_variadic:
             raise PipelineConnectError(
                 f"Cannot connect '{from_node}.{from_socket.name}' with '{to_node}.{to_socket.name}': "
                 f"{to_node}.{to_socket.name} is already connected to {to_socket.sender}.\n"
@@ -316,8 +307,8 @@ class Pipeline:
             to_socket=to_socket,
         )
 
-        # Stores the name of the node that will send its output to this socket
-        to_socket.sender = from_node
+        # Stores the name of the nodes that will send its output to this socket
+        to_socket.sender.append(from_node)
 
     def get_component(self, name: str) -> Component:
         """
@@ -354,11 +345,6 @@ class Pipeline:
             ImportError: if `engine='graphviz'` and `pygraphviz` is not installed.
             HTTPConnectionError: (and similar) if the internet connection is down or other connection issues.
         """
-        sockets = {
-            comp: "\n".join([f"{name}: {socket}" for name, socket in data.get("input_sockets", {}).items()])
-            for comp, data in self.graph.nodes(data=True)
-        }
-        print(sockets)
         _draw(graph=networkx.MultiDiGraph(self.graph), path=path, engine=engine)
 
     def warm_up(self):
@@ -416,18 +402,13 @@ class Pipeline:
         # if debug:
         #     os.makedirs("debug", exist_ok=True)
 
-        data = _validate_pipeline_input(self.graph, input_values=data)
-        self._clear_visits_count()
-        self.warm_up()
+        data = validate_pipeline_input(self.graph, input_values=data)
 
         logger.info("Pipeline execution started.")
-        inputs_buffer = OrderedDict(
-            {
-                node: {key: value for key, value in input_data.items() if value is not None}
-                for node, input_data in data.items()
-            }
-        )
+        inputs_buffer = self._prepare_inputs_buffer(data)
         pipeline_output: Dict[str, Dict[str, Any]] = {}
+        self._clear_visits_count()
+        self.warm_up()
 
         if debug:
             logger.info("Debug mode ON.")
@@ -667,11 +648,7 @@ class Pipeline:
 
         if any(self.graph.nodes[n]["visits"] == 0 for n in input_components.keys()):
             # Some upstream component that must send input to the current component has yet to run.
-            logger.debug(
-                "Component '%s' is waiting. Missing inputs: %s",
-                name,
-                set(input_components.values()),
-            )
+            logger.debug("Component '%s' is waiting. Missing inputs: %s", name, set(input_components.values()))
             return "wait"
 
         ###############
@@ -701,7 +678,7 @@ class Pipeline:
             f"input components: {list(input_components.keys())}, "
             f"skipped components: {skipped_components}, "
             f"skipped optional inputs: {skipped_optional_input_sockets}."
-            f"This is likely a Canals bug. Please open an issue at https://github.com/deepset-ai/canals.",
+            f"This is likely a Canals bug. Please open an issue at https://github.com/deepset-ai/canals."
         )
 
     def _skip_downstream_unvisited_nodes(self, component_name: str, inputs_buffer: OrderedDict) -> OrderedDict:
@@ -749,12 +726,7 @@ class Pipeline:
 
         return outputs
 
-    def _route_output(
-        self,
-        node_name: str,
-        node_results: Dict[str, Any],
-        inputs_buffer: OrderedDict,
-    ) -> OrderedDict:
+    def _route_output(self, node_name: str, node_results: Dict[str, Any], inputs_buffer: OrderedDict) -> OrderedDict:
         """
         Distrubute the outputs of the component into the input buffer of downstream components.
 
@@ -775,24 +747,42 @@ class Pipeline:
             if is_decision_node_for_loop and node_results.get(from_socket.name, None) is None:
                 if networkx.has_path(self.graph, target_node, node_name):
                     # In case we're choosing to leave a loop, do not put the loop's node in the buffer.
-                    logger.debug(
-                        "Not adding '%s' to the inputs buffer: we're leaving the loop.",
-                        target_node,
-                    )
+                    logger.debug("Not adding '%s' to the inputs buffer: we're leaving the loop.", target_node)
                 else:
                     # In case we're choosing to stay in a loop, do not put the external node in the buffer.
-                    logger.debug(
-                        "Not adding '%s' to the inputs buffer: we're staying in the loop.",
-                        target_node,
-                    )
+                    logger.debug("Not adding '%s' to the inputs buffer: we're staying in the loop.", target_node)
             else:
-                # In all other cases, populate the inputs buffer for all downstream nodes, setting None to any
-                # edge that did not receive input.
-                if target_node not in inputs_buffer:
-                    inputs_buffer[target_node] = {}  # Create the buffer for the downstream node if it's not there yet
+                # In all other cases, populate the inputs buffer for all downstream nodes.
 
-                value_to_route = node_results.get(from_socket.name, None)
-                if value_to_route is not None:
+                # Create the buffer for the downstream node if it's not yet there.
+                if target_node not in inputs_buffer:
+                    inputs_buffer[target_node] = {}
+
+                # Skip Edges that did not receive any input.
+                value_to_route = node_results.get(from_socket.name)
+                if value_to_route is None:
+                    continue
+
+                # If the socket was marked as variadic, pile up inputs in a list
+                if to_socket.is_variadic:
+                    inputs_buffer[target_node].setdefault(to_socket.name, []).append(value_to_route)
+                # Non-variadic input: just store the value
+                else:
                     inputs_buffer[target_node][to_socket.name] = value_to_route
 
+        return inputs_buffer
+
+    def _prepare_inputs_buffer(self, data: Dict[str, Any]) -> OrderedDict:
+        """
+        Prepare the inputs buffer based on the parameters that were
+        passed to run()
+        """
+        inputs_buffer: OrderedDict = OrderedDict()
+        for node_name, input_data in data.items():
+            for socket_name, value in input_data.items():
+                if value is None:
+                    continue
+                if self.graph.nodes[node_name]["input_sockets"][socket_name].is_variadic:
+                    value = [value]
+                inputs_buffer.setdefault(node_name, {})[socket_name] = value
         return inputs_buffer
