@@ -13,7 +13,7 @@ from canals.component.sockets import InputSocket, OutputSocket
 logger = logging.getLogger(__name__)
 
 
-def _find_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, List[InputSocket]]:
+def find_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, List[InputSocket]]:
     """
     Collect components that have disconnected input sockets. Note that this method returns *ALL* disconnected
     input sockets, including all such sockets with default values.
@@ -24,7 +24,7 @@ def _find_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, List[InputS
     }
 
 
-def _find_pipeline_outputs(graph) -> Dict[str, List[OutputSocket]]:
+def find_pipeline_outputs(graph) -> Dict[str, List[OutputSocket]]:
     """
     Collect components that have disconnected output sockets. They define the pipeline output.
     """
@@ -35,23 +35,23 @@ def _find_pipeline_outputs(graph) -> Dict[str, List[OutputSocket]]:
     }
 
 
-def _describe_pipeline_inputs(graph: networkx.MultiDiGraph):
+def describe_pipeline_inputs(graph: networkx.MultiDiGraph):
     """
     Returns a dictionary with the input names and types that this pipeline accepts.
     """
     inputs = {
         comp: {socket.name: {"type": socket.type, "is_optional": socket.is_optional} for socket in data}
-        for comp, data in _find_pipeline_inputs(graph).items()
+        for comp, data in find_pipeline_inputs(graph).items()
         if data
     }
     return inputs
 
 
-def _describe_pipeline_inputs_as_string(graph: networkx.MultiDiGraph):
+def describe_pipeline_inputs_as_string(graph: networkx.MultiDiGraph):
     """
     Returns a string representation of the input names and types that this pipeline accepts.
     """
-    inputs = _describe_pipeline_inputs(graph)
+    inputs = describe_pipeline_inputs(graph)
     message = "This pipeline expects the following inputs:\n"
     for comp, sockets in inputs.items():
         if sockets:
