@@ -16,7 +16,6 @@ class InputSocket:
     name: str
     type: Type
     has_default: bool = False
-    is_optional: bool = field(init=False)
     is_variadic: bool = field(init=False)
     sender: List[str] = field(default_factory=list)
 
