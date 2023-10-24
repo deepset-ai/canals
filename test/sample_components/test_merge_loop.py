@@ -11,34 +11,32 @@ from sample_components import MergeLoop
 
 
 def test_to_dict():
-    component = MergeLoop(expected_type=int, inputs=["first", "second"])
+    component = MergeLoop(expected_type=int)
     res = component.to_dict()
     assert res == {
         "type": "MergeLoop",
-        "init_parameters": {"expected_type": "builtins.int", "inputs": ["first", "second"]},
+        "init_parameters": {"expected_type": "builtins.int"},
     }
 
 
 def test_to_dict_with_typing_class():
-    component = MergeLoop(expected_type=Dict, inputs=["first", "second"])
+    component = MergeLoop(expected_type=Dict)
     res = component.to_dict()
     assert res == {
         "type": "MergeLoop",
         "init_parameters": {
             "expected_type": "typing.Dict",
-            "inputs": ["first", "second"],
         },
     }
 
 
 def test_to_dict_with_custom_class():
-    component = MergeLoop(expected_type=MergeLoop, inputs=["first", "second"])
+    component = MergeLoop(expected_type=MergeLoop)
     res = component.to_dict()
     assert res == {
         "type": "MergeLoop",
         "init_parameters": {
             "expected_type": "sample_components.merge_loop.MergeLoop",
-            "inputs": ["first", "second"],
         },
     }
 
@@ -46,11 +44,10 @@ def test_to_dict_with_custom_class():
 def test_from_dict():
     data = {
         "type": "MergeLoop",
-        "init_parameters": {"expected_type": "builtins.int", "inputs": ["first", "second"]},
+        "init_parameters": {"expected_type": "builtins.int"},
     }
     component = MergeLoop.from_dict(data)
     assert component.expected_type == "builtins.int"
-    assert component.inputs == ["first", "second"]
 
 
 def test_from_dict_with_typing_class():
@@ -58,12 +55,10 @@ def test_from_dict_with_typing_class():
         "type": "MergeLoop",
         "init_parameters": {
             "expected_type": "typing.Dict",
-            "inputs": ["first", "second"],
         },
     }
     component = MergeLoop.from_dict(data)
     assert component.expected_type == "typing.Dict"
-    assert component.inputs == ["first", "second"]
 
 
 def test_from_dict_with_custom_class():
@@ -71,20 +66,16 @@ def test_from_dict_with_custom_class():
         "type": "MergeLoop",
         "init_parameters": {
             "expected_type": "sample_components.merge_loop.MergeLoop",
-            "inputs": ["first", "second"],
         },
     }
     component = MergeLoop.from_dict(data)
     assert component.expected_type == "sample_components.merge_loop.MergeLoop"
-    assert component.inputs == ["first", "second"]
 
 
 def test_from_dict_without_expected_type():
     data = {
         "type": "MergeLoop",
-        "init_parameters": {
-            "inputs": ["first", "second"],
-        },
+        "init_parameters": {},
     }
     with pytest.raises(DeserializationError) as exc:
         MergeLoop.from_dict(data)
@@ -92,44 +83,31 @@ def test_from_dict_without_expected_type():
     exc.match("Missing 'expected_type' field in 'init_parameters'")
 
 
-def test_from_dict_without_inputs():
-    data = {
-        "type": "MergeLoop",
-        "init_parameters": {
-            "expected_type": "sample_components.merge_loop.MergeLoop",
-        },
-    }
-    with pytest.raises(DeserializationError) as exc:
-        MergeLoop.from_dict(data)
-
-    exc.match("Missing 'inputs' field in 'init_parameters'")
-
-
 def test_merge_first():
-    component = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
-    results = component.run(in_1=5)
+    component = MergeLoop(expected_type=int)
+    results = component.run(values=[5, None])
     assert results == {"value": 5}
 
 
 def test_merge_second():
-    component = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
-    results = component.run(in_2=5)
+    component = MergeLoop(expected_type=int)
+    results = component.run(values=[None, 5])
     assert results == {"value": 5}
 
 
 def test_merge_nones():
-    component = MergeLoop(expected_type=int, inputs=["in_1", "in_2", "in_3"])
-    results = component.run()
+    component = MergeLoop(expected_type=int)
+    results = component.run(values=[None, None])
     assert results == {"value": None}
 
 
 def test_merge_one():
-    component = MergeLoop(expected_type=int, inputs=["in_1"])
-    results = component.run(in_1=1)
+    component = MergeLoop(expected_type=int)
+    results = component.run(values=[1])
     assert results == {"value": 1}
 
 
 def test_merge_one_none():
-    component = MergeLoop(expected_type=int, inputs=[])
-    results = component.run()
+    component = MergeLoop(expected_type=int)
+    results = component.run(values=[])
     assert results == {"value": None}

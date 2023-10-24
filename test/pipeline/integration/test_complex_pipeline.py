@@ -23,8 +23,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 def test_complex_pipeline(tmp_path):
-    loop_merger = MergeLoop(expected_type=int, inputs=["in_1", "in_2"])
-    summer = Sum(inputs=["in_1", "in_2", "in_3"])
+    loop_merger = MergeLoop(expected_type=int)
+    summer = Sum()
 
     pipeline = Pipeline(max_loops_allowed=2)
     pipeline.add_component("greet_first", Greet(message="Hello, the value is {value}."))
@@ -57,7 +57,7 @@ def test_complex_pipeline(tmp_path):
     pipeline.connect("add_two", "parity")
 
     pipeline.connect("parity.even", "greet_again")
-    pipeline.connect("greet_again", "sum.in_1")
+    pipeline.connect("greet_again", "sum.values")
     pipeline.connect("sum", "diff.first_value")
     pipeline.connect("diff", "greet_one_last_time")
     pipeline.connect("greet_one_last_time", "replicate")
@@ -66,20 +66,20 @@ def test_complex_pipeline(tmp_path):
     pipeline.connect("add_four", "accumulate_3")
 
     pipeline.connect("parity.odd", "add_one.value")
-    pipeline.connect("add_one", "loop_merger.in_1")
+    pipeline.connect("add_one", "loop_merger.values")
     pipeline.connect("loop_merger", "below_10")
 
     pipeline.connect("below_10.below", "double")
-    pipeline.connect("double", "loop_merger.in_2")
+    pipeline.connect("double", "loop_merger.values")
 
     pipeline.connect("below_10.above", "accumulate_2")
     pipeline.connect("accumulate_2", "diff.second_value")
 
     pipeline.connect("greet_enumerator", "enumerate")
-    pipeline.connect("enumerate.second", "sum.in_2")
+    pipeline.connect("enumerate.second", "sum.values")
 
     pipeline.connect("enumerate.first", "add_three.value")
-    pipeline.connect("add_three", "sum.in_3")
+    pipeline.connect("add_three", "sum.values")
 
     pipeline.draw(tmp_path / "complex_pipeline.png")
 

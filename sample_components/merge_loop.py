@@ -1,18 +1,18 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import List, Any, Optional, Dict
+from typing import Any, Dict
 import sys
 
 from canals import component
 from canals.errors import DeserializationError
 from canals.serialization import default_to_dict
+from canals.component.types import Variadic
 
 
-@component
 class MergeLoop:
-    def __init__(self, expected_type: Any, inputs: List[str]):
-        component.set_input_types(self, **{input_name: Optional[expected_type] for input_name in inputs})
+    def __init__(self, expected_type):
+        component.set_input_types(self, values=Variadic[expected_type])  # type: ignore
         component.set_output_types(self, value=expected_type)
 
         if expected_type.__module__ == "builtins":
@@ -22,14 +22,8 @@ class MergeLoop:
         else:
             self.expected_type = f"{expected_type.__module__}.{expected_type.__name__}"
 
-        self.inputs = inputs
-
     def to_dict(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        return default_to_dict(
-            self,
-            expected_type=self.expected_type,
-            inputs=self.inputs,
-        )
+        return default_to_dict(self, expected_type=self.expected_type)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MergeLoop":  # pylint: disable=missing-function-docstring
@@ -43,9 +37,6 @@ class MergeLoop:
         if "expected_type" not in init_params:
             raise DeserializationError("Missing 'expected_type' field in 'init_parameters'")
 
-        if "inputs" not in init_params:
-            raise DeserializationError("Missing 'inputs' field in 'init_parameters'")
-
         module = sys.modules[__name__]
         fully_qualified_type_name = init_params["expected_type"]
         if fully_qualified_type_name.startswith("builtins."):
@@ -58,15 +49,13 @@ class MergeLoop:
                 f"Can't find type '{type_name}', import '{fully_qualified_type_name}' to fix the issue"
             ) from exc
 
-        inputs = init_params["inputs"]
+        return cls(expected_type=expected_type)
 
-        return cls(expected_type=expected_type, inputs=inputs)
-
-    def run(self, **kwargs):
+    def run(self, values: Variadic):
         """
         :param kwargs: find the first non-None value and return it.
         """
-        for value in kwargs.values():
+        for value in values:
             if value is not None:
                 return {"value": value}
         return {"value": None}
