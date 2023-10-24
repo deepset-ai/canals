@@ -18,15 +18,15 @@ def test_pipeline(tmp_path):
 
     pipeline = Pipeline(max_loops_allowed=10)
     pipeline.add_component("add_one", AddFixedValue(add=1))
-    pipeline.add_component("merge", MergeLoop(expected_type=int, inputs=["in_1", "in_2"]))
+    pipeline.add_component("merge", MergeLoop(expected_type=int))
     pipeline.add_component("below_10", Threshold(threshold=10))
     pipeline.add_component("accumulator", accumulator)
     pipeline.add_component("add_two", AddFixedValue(add=2))
 
-    pipeline.connect("add_one.result", "merge.in_1")
+    pipeline.connect("add_one.result", "merge.values")
     pipeline.connect("merge.value", "below_10.value")
     pipeline.connect("below_10.below", "accumulator.value")
-    pipeline.connect("accumulator.value", "merge.in_2")
+    pipeline.connect("accumulator.value", "merge.values")
     pipeline.connect("below_10.above", "add_two.value")
 
     pipeline.draw(tmp_path / "looping_pipeline.png")
