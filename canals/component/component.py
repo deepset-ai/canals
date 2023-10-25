@@ -134,6 +134,7 @@ class ComponentMeta(type):
                 param: InputSocket(
                     name=param,
                     type=run_signature.parameters[param].annotation,
+                    is_mandatory=run_signature.parameters[param].default == inspect.Parameter.empty,
                 )
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }

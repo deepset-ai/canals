@@ -4,6 +4,7 @@ import pytest
 import inspect
 
 from canals.pipeline import Pipeline
+from canals.component.types import Variadic
 from canals.errors import PipelineValidationError
 from canals.component.sockets import InputSocket, OutputSocket
 from canals.pipeline.validation import _find_pipeline_inputs, _find_pipeline_outputs
@@ -41,7 +42,7 @@ def test_find_pipeline_input_two_inputs_same_component():
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
-            InputSocket(name="add", type=Optional[int]),
+            InputSocket(name="add", type=Optional[int], is_mandatory=False),
         ],
         "comp2": [],
     }
@@ -58,7 +59,7 @@ def test_find_pipeline_input_some_inputs_different_components():
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
-            InputSocket(name="add", type=Optional[int]),
+            InputSocket(name="add", type=Optional[int], is_mandatory=False),
         ],
         "comp2": [InputSocket(name="value", type=int)],
         "comp3": [],
@@ -69,17 +70,16 @@ def test_find_pipeline_variable_input_nodes_in_the_pipeline():
     pipe = Pipeline()
     pipe.add_component("comp1", AddFixedValue())
     pipe.add_component("comp2", Double())
-    pipe.add_component("comp3", Sum(inputs=["in_1", "in_2"]))
+    pipe.add_component("comp3", Sum())
 
     assert _find_pipeline_inputs(pipe.graph) == {
         "comp1": [
             InputSocket(name="value", type=int),
-            InputSocket(name="add", type=Optional[int]),
+            InputSocket(name="add", type=Optional[int], is_mandatory=False),
         ],
         "comp2": [InputSocket(name="value", type=int)],
         "comp3": [
-            InputSocket(name="in_1", type=Optional[int]),
-            InputSocket(name="in_2", type=Optional[int]),
+            InputSocket(name="values", type=Variadic[int]),
         ],
     }
 

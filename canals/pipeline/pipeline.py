@@ -444,18 +444,6 @@ class Pipeline:
                 inputs_buffer[component_name] = inputs
                 continue
 
-            # This component did not receive the input it needs: it must be on a skipped branch. Let's not run it.
-            if action == "skip":
-                self.graph.nodes[component_name]["visits"] += 1
-                inputs_buffer = self._skip_downstream_unvisited_nodes(
-                    component_name=component_name, inputs_buffer=inputs_buffer
-                )
-                continue
-
-            if action == "remove":
-                # This component has no reason of being in the run queue and we need to remove it. For example, this can happen to components that are connected to skipped branches of the pipeline.
-                continue
-
             # **** RUN THE NODE ****
             # It is our turn! The node is ready to run and all necessary inputs are present
             output = self._run_component(name=component_name, inputs=inputs)
@@ -542,12 +530,6 @@ class Pipeline:
             * It received some of its inputs and the other are not skipped
             * It received all mandatory inputs and some optional inputs have not been skipped
 
-        Component will be skipped if:
-            * It never ran nor waited
-
-        Component will be removed if:
-            * It ran or waited at least once but can't do it again
-
         If none of the above condition is met a PipelineRuntimeError is raised.
 
         For simplicity sake input components that create a cycle, or components that already ran
@@ -575,10 +557,10 @@ class Pipeline:
         # All components inputs, whether they're connected, default or pipeline inputs
         input_sockets: Dict[str, InputSocket] = self.graph.nodes[name]["input_sockets"].keys()
         optional_input_sockets = {
-            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if socket.is_optional
+            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if not socket.is_mandatory
         }
         mandatory_input_sockets = {
-            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if not socket.is_optional
+            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if socket.is_mandatory
         }
 
         # Components that are in the inputs buffer and have no inputs assigned are considered skipped
@@ -650,24 +632,6 @@ class Pipeline:
             # Some upstream component that must send input to the current component has yet to run.
             logger.debug("Component '%s' is waiting. Missing inputs: %s", name, set(input_components.values()))
             return "wait"
-
-        ###############
-        # SKIP CHECKS #
-        ###############
-        if self.graph.nodes[name]["visits"] == 0:
-            # It's the first time visiting this component, if it can't run nor wait
-            # it's fine skipping it at this point.
-            logger.debug("Component '%s' is skipped. It can't run nor wait.", name)
-            return "skip"
-
-        #################
-        # REMOVE CHECKS #
-        #################
-        if self.graph.nodes[name]["visits"] > 0:
-            # This component has already been visited at least once. If it can't run nor wait
-            # there is no reason to skip it again. So we it must be removed.
-            logger.debug("Component '%s' is removed. It can't run, wait or skip.", name)
-            return "remove"
 
         # Can't determine action to take
         raise PipelineRuntimeError(
@@ -754,14 +718,14 @@ class Pipeline:
             else:
                 # In all other cases, populate the inputs buffer for all downstream nodes.
 
-                # Create the buffer for the downstream node if it's not yet there.
-                if target_node not in inputs_buffer:
-                    inputs_buffer[target_node] = {}
-
                 # Skip Edges that did not receive any input.
                 value_to_route = node_results.get(from_socket.name)
                 if value_to_route is None:
                     continue
+
+                # Create the buffer for the downstream node if it's not yet there.
+                if target_node not in inputs_buffer:
+                    inputs_buffer[target_node] = {}
 
                 # If the socket was marked as variadic, pile up inputs in a list
                 if to_socket.is_variadic:

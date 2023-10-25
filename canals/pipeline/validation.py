@@ -71,7 +71,7 @@ def _validate_input_sockets_are_connected(graph: networkx.MultiDiGraph, input_va
                 or not socket.name in inputs_for_node.keys()
                 or inputs_for_node.get(socket.name, None) is None
             )
-            if missing_input_value and not socket.is_optional:
+            if missing_input_value and socket.is_mandatory:
                 raise ValueError(f"Missing input: {node}.{socket.name}")
 
 
@@ -85,10 +85,7 @@ def _validate_nodes_receive_only_expected_input(graph: networkx.MultiDiGraph, in
             if input_data.get(socket_name, None) is None:
                 continue
             if not socket_name in graph.nodes[node]["input_sockets"].keys():
-                raise ValueError(
-                    f"Component {node} is not expecting any input value called {socket_name}. "
-                    "Are you using the correct Input class?"
-                )
+                raise ValueError(f"Component {node} is not expecting any input value called {socket_name}. ")
 
             input_socket: InputSocket = graph.nodes[node]["input_sockets"][socket_name]
             if input_socket.sender and not input_socket.is_variadic:
