@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Optional, Any, Dict, List, Literal, Union, TypeVar, Type
+from typing import Optional, Any, Dict, List, Union, TypeVar, Type
 
 import os
 import json
@@ -403,9 +403,29 @@ class Pipeline:
         #     os.makedirs("debug", exist_ok=True)
 
         data = validate_pipeline_input(self.graph, input_values=data)
-
         logger.info("Pipeline execution started.")
-        inputs_buffer = self._prepare_inputs_buffer(data)
+
+        # Prepare the inputs buffer
+        inputs_buffer: Dict[str, Dict[str, Any]] = {}
+        for node_name, input_data in data.items():
+            for socket_name, value in input_data.items():
+                if value is None:
+                    continue
+
+                socket = self.graph.nodes[node_name]["input_sockets"][socket_name]
+                if not node_name in inputs_buffer:
+                    inputs_buffer[node_name] = {"mandatory": {}, "optional": {}}
+
+                if socket.is_variadic:
+                    value = [value]
+                if socket.is_mandatory:
+                    inputs_buffer[node_name]["mandatory"][socket_name] = value
+                else:
+                    inputs_buffer[node_name]["optional"][socket_name] = value
+
+        # All components that received non-optional inputs are placed in the queue
+        components_queue = [name for name, inputs in inputs_buffer.items() if inputs["mandatory"]]
+
         pipeline_output: Dict[str, Dict[str, Any]] = {}
         self._clear_visits_count()
         self.warm_up()
@@ -417,35 +437,52 @@ class Pipeline:
         # *** PIPELINE EXECUTION LOOP ***
         # We select the nodes to run by popping them in FIFO order from the inputs buffer.
         step = 0
-        while inputs_buffer:
+        while components_queue:
             step += 1
+            if step > 15:
+                break
+
             if debug:
                 self._record_pipeline_step(step, inputs_buffer, pipeline_output)
-            logger.debug("> Queue at step %s: %s", step, {k: list(v.keys()) for k, v in inputs_buffer.items()})
+            logger.debug(
+                "> Queue at step %s: %s %s",
+                step,
+                components_queue,
+                {k: [list(v["mandatory"].keys()), list(v["optional"].keys())] for k, v in inputs_buffer.items()},
+            )
 
-            component_name, inputs = inputs_buffer.popitem(last=False)  # FIFO
+            component_name = components_queue.pop(0)
+            inputs = inputs_buffer.pop(component_name, {})
 
             # Make sure it didn't run too many times already
             self._check_max_loops(component_name)
 
             # **** IS IT MY TURN YET? ****
             # Check if the component should be run or not
-            action = self._calculate_action(name=component_name, inputs=inputs, inputs_buffer=inputs_buffer)
+            received_input_sockets = set(inputs["mandatory"].keys())
+            mandatory_input_sockets = {
+                socket_name
+                for socket_name, socket in self.graph.nodes[component_name]["input_sockets"].items()
+                if socket.is_mandatory
+            }
+            if mandatory_input_sockets.issubset(received_input_sockets):
+                logger.debug("Component '%s' is ready to run. All mandatory inputs received.", component_name)
 
-            # This component is missing data: let's put it back in the queue and wait.
-            if action == "wait":
+            else:
+                logger.debug("Component '%s' is not ready to run, some inputs are still missing.", component_name)
                 if not inputs_buffer:
                     # What if there are no components to wait for?
                     raise PipelineRuntimeError(
                         f"'{component_name}' is stuck waiting for input, but there are no other components to run. "
                         "This is likely a Canals bug. Open an issue at https://github.com/deepset-ai/canals."
                     )
-
+                components_queue.append(component_name)
                 inputs_buffer[component_name] = inputs
                 continue
 
             # **** RUN THE NODE ****
             # It is our turn! The node is ready to run and all necessary inputs are present
+            inputs = {**inputs["mandatory"], **inputs["optional"]}
             output = self._run_component(name=component_name, inputs=inputs)
 
             # **** PROCESS THE OUTPUT ****
@@ -454,9 +491,33 @@ class Pipeline:
                 # Note: if a node outputs many times (like in loops), the output will be overwritten
                 pipeline_output[component_name] = output
             else:
-                inputs_buffer = self._route_output(
-                    node_results=output, node_name=component_name, inputs_buffer=inputs_buffer
-                )
+                # inputs_buffer = self._route_output(
+                #     node_results=output, node_name=component_name, inputs_buffer=inputs_buffer
+                # )
+                for edge_data in self.graph.out_edges(component_name, data=True):
+                    to_socket = edge_data[2]["to_socket"]
+                    from_socket = edge_data[2]["from_socket"]
+                    target_node = edge_data[1]
+
+                    # Skip Edges that did not receive any input.
+                    value_to_route = output.get(from_socket.name)
+                    if value_to_route is None:
+                        continue
+
+                    # Create the buffer for the downstream node if it's not yet there.
+                    if target_node not in inputs_buffer:
+                        inputs_buffer[target_node] = {"mandatory": {}, "optional": {}}
+
+                    subset = "mandatory" if to_socket.is_mandatory else "optional"
+                    # If the socket was marked as variadic, pile up inputs in a list
+                    if to_socket.is_variadic:
+                        inputs_buffer[target_node][subset].setdefault(to_socket.name, []).append(value_to_route)
+                    # Non-variadic input: just store the value
+                    else:
+                        inputs_buffer[target_node][subset][to_socket.name] = value_to_route
+
+                    if to_socket.is_mandatory and target_node not in components_queue:
+                        components_queue.append(target_node)
 
         if debug:
             self._record_pipeline_step(step + 1, inputs_buffer, pipeline_output)
@@ -499,151 +560,6 @@ class Pipeline:
             raise PipelineMaxLoops(
                 f"Maximum loops count ({self.max_loops_allowed}) exceeded for component '{component_name}'."
             )
-
-    # This function is complex so it contains quite some logic, it needs tons of information
-    # regarding a component to understand what action it should take so we have many local
-    # variables and to keep things simple we also have multiple returns.
-    # In the end this amount of information makes it easier to understand the internal logic so
-    # we chose to ignore these pylint warnings.
-    def _calculate_action(  # pylint: disable=too-many-locals, too-many-return-statements
-        self, name: str, inputs: Dict[str, Any], inputs_buffer: Dict[str, Any]
-    ) -> Literal["run", "wait", "skip", "remove"]:
-        """
-        Calculates the action to take for the component specified by `name`.
-        There are four possible actions:
-            * run
-            * wait
-            * skip
-            * remove
-
-        The below conditions are evaluated in this order.
-
-        Component will run if at least one of the following statements is true:
-            * It received all mandatory inputs
-            * It received all mandatory inputs and it has no optional inputs
-            * It received all mandatory inputs and all optional inputs are skipped
-            * It received all mandatory inputs and some optional inputs and the rest are skipped
-            * It received some of its inputs and the others are defaulted
-            * It's the first component of the pipeline
-
-        Component will wait if:
-            * It received some of its inputs and the other are not skipped
-            * It received all mandatory inputs and some optional inputs have not been skipped
-
-        If none of the above condition is met a PipelineRuntimeError is raised.
-
-        For simplicity sake input components that create a cycle, or components that already ran
-        and don't create a cycle are considered as skipped.
-
-        Args:
-            name: Name of the component
-            inputs: Values that the component will take as input
-            inputs_buffer: Other components' inputs
-
-        Returns:
-            Action to take for component specifing whether it should run, wait, skip or be removed
-
-        Raises:
-            PipelineRuntimeError: If action to take can't be determined
-        """
-
-        # Upstream components/socket pairs the current component is connected to
-        input_components = {
-            from_node: data["to_socket"].name for from_node, _, data in self.graph.in_edges(name, data=True)
-        }
-        # Sockets that have received inputs from upstream components
-        received_input_sockets = set(inputs.keys())
-
-        # All components inputs, whether they're connected, default or pipeline inputs
-        input_sockets: Dict[str, InputSocket] = self.graph.nodes[name]["input_sockets"].keys()
-        optional_input_sockets = {
-            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if not socket.is_mandatory
-        }
-        mandatory_input_sockets = {
-            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if socket.is_mandatory
-        }
-
-        # Components that are in the inputs buffer and have no inputs assigned are considered skipped
-        skipped_components = {n for n, v in inputs_buffer.items() if not v}
-
-        # Sockets that have their upstream component marked as skipped
-        skipped_optional_input_sockets = {
-            sockets["to_socket"].name
-            for from_node, _, sockets in self.graph.in_edges(name, data=True)
-            if from_node in skipped_components and sockets["to_socket"].name in optional_input_sockets
-        }
-
-        for from_node, socket in input_components.items():
-            if socket not in optional_input_sockets:
-                continue
-            loops_back = networkx.has_path(self.graph, name, from_node)
-            has_run = self.graph.nodes[from_node]["visits"] > 0
-            if loops_back or has_run:
-                # Consider all input components that loop back to current component
-                # or that have already run at least once as skipped.
-                # This must be done to correctly handle cycles in the pipeline or we
-                # would reach a dead lock in components that have multiple inputs and
-                # one of these forms a cycle.
-                skipped_optional_input_sockets.add(socket)
-
-        ##############
-        # RUN CHECKS #
-        ##############
-        if (
-            mandatory_input_sockets.issubset(received_input_sockets)
-            and input_sockets == received_input_sockets | mandatory_input_sockets | skipped_optional_input_sockets
-        ):
-            # We received all mandatory inputs and:
-            #   * There are no optional inputs or
-            #   * All optional inputs are skipped or
-            #   * We received part of the optional inputs, the rest are skipped
-            if not optional_input_sockets:
-                logger.debug("Component '%s' is ready to run. All mandatory inputs received.", name)
-            else:
-                logger.debug(
-                    "Component '%s' is ready to run. All mandatory inputs received, skipped optional inputs: %s",
-                    name,
-                    skipped_optional_input_sockets,
-                )
-            return "run"
-
-        if set(input_components.values()).issubset(received_input_sockets):
-            # We have data from each connected input component.
-            # We reach this when the current component is the first of the pipeline or
-            # when it has defaults and all its input components have run.
-            logger.debug("Component '%s' is ready to run. All expected inputs were received.", name)
-            return "run"
-
-        ###############
-        # WAIT CHECKS #
-        ###############
-        if mandatory_input_sockets == received_input_sockets and skipped_optional_input_sockets.issubset(
-            optional_input_sockets
-        ):
-            # We received all of the inputs we need, but some optional inputs have not been run or skipped yet
-            logger.debug(
-                "Component '%s' is waiting. All mandatory inputs received, some optional are not skipped: %s",
-                name,
-                optional_input_sockets - skipped_optional_input_sockets,
-            )
-            return "wait"
-
-        if any(self.graph.nodes[n]["visits"] == 0 for n in input_components.keys()):
-            # Some upstream component that must send input to the current component has yet to run.
-            logger.debug("Component '%s' is waiting. Missing inputs: %s", name, set(input_components.values()))
-            return "wait"
-
-        # Can't determine action to take
-        raise PipelineRuntimeError(
-            f"Can't determine Component '{name}' action. "
-            f"Mandatory input sockets: {mandatory_input_sockets}, "
-            f"optional input sockets: {optional_input_sockets}, "
-            f"received input: {list(inputs.keys())}, "
-            f"input components: {list(input_components.keys())}, "
-            f"skipped components: {skipped_components}, "
-            f"skipped optional inputs: {skipped_optional_input_sockets}."
-            f"This is likely a Canals bug. Please open an issue at https://github.com/deepset-ai/canals."
-        )
 
     def _skip_downstream_unvisited_nodes(self, component_name: str, inputs_buffer: OrderedDict) -> OrderedDict:
         """
@@ -689,64 +605,3 @@ class Pipeline:
             ) from e
 
         return outputs
-
-    def _route_output(self, node_name: str, node_results: Dict[str, Any], inputs_buffer: OrderedDict) -> OrderedDict:
-        """
-        Distrubute the outputs of the component into the input buffer of downstream components.
-
-        Returns the updated inputs buffer.
-        """
-        # This is not a terminal node: find out where the output goes, to which nodes and along which edge
-        is_decision_node_for_loop = (
-            any(networkx.has_path(self.graph, edge[1], node_name) for edge in self.graph.out_edges(node_name))
-            and len(self.graph.out_edges(node_name)) > 1
-        )
-        for edge_data in self.graph.out_edges(node_name, data=True):
-            to_socket = edge_data[2]["to_socket"]
-            from_socket = edge_data[2]["from_socket"]
-            target_node = edge_data[1]
-
-            # If this is a decision node and a loop is involved, we add to the input buffer only the nodes
-            # that received their expected output and we leave the others out of the queue.
-            if is_decision_node_for_loop and node_results.get(from_socket.name, None) is None:
-                if networkx.has_path(self.graph, target_node, node_name):
-                    # In case we're choosing to leave a loop, do not put the loop's node in the buffer.
-                    logger.debug("Not adding '%s' to the inputs buffer: we're leaving the loop.", target_node)
-                else:
-                    # In case we're choosing to stay in a loop, do not put the external node in the buffer.
-                    logger.debug("Not adding '%s' to the inputs buffer: we're staying in the loop.", target_node)
-            else:
-                # In all other cases, populate the inputs buffer for all downstream nodes.
-
-                # Skip Edges that did not receive any input.
-                value_to_route = node_results.get(from_socket.name)
-                if value_to_route is None:
-                    continue
-
-                # Create the buffer for the downstream node if it's not yet there.
-                if target_node not in inputs_buffer:
-                    inputs_buffer[target_node] = {}
-
-                # If the socket was marked as variadic, pile up inputs in a list
-                if to_socket.is_variadic:
-                    inputs_buffer[target_node].setdefault(to_socket.name, []).append(value_to_route)
-                # Non-variadic input: just store the value
-                else:
-                    inputs_buffer[target_node][to_socket.name] = value_to_route
-
-        return inputs_buffer
-
-    def _prepare_inputs_buffer(self, data: Dict[str, Any]) -> OrderedDict:
-        """
-        Prepare the inputs buffer based on the parameters that were
-        passed to run()
-        """
-        inputs_buffer: OrderedDict = OrderedDict()
-        for node_name, input_data in data.items():
-            for socket_name, value in input_data.items():
-                if value is None:
-                    continue
-                if self.graph.nodes[node_name]["input_sockets"][socket_name].is_variadic:
-                    value = [value]
-                inputs_buffer.setdefault(node_name, {})[socket_name] = value
-        return inputs_buffer
