@@ -355,7 +355,7 @@ def test_describe_input_some_components_with_no_inputs():
     p.add_component("c", C())
     p.connect("a.x", "c.x")
     p.connect("b.y", "c.y")
-    assert p.inputs() == {"b": {"y": {"type": int, "is_optional": False}}}
+    assert p.inputs() == {"b": {"y": {"type": int, "is_mandatory": True}}}
 
 
 def test_describe_input_all_components_have_inputs():
@@ -369,6 +369,6 @@ def test_describe_input_all_components_have_inputs():
     p.connect("a.x", "c.x")
     p.connect("b.y", "c.y")
     assert p.inputs() == {
-        "a": {"x": {"type": Optional[int], "is_optional": True}},
-        "b": {"y": {"type": int, "is_optional": False}},
+        "a": {"x": {"type": Optional[int], "is_mandatory": True}},
+        "b": {"y": {"type": int, "is_mandatory": True}},
     }

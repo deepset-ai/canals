@@ -40,7 +40,7 @@ def describe_pipeline_inputs(graph: networkx.MultiDiGraph):
     Returns a dictionary with the input names and types that this pipeline accepts.
     """
     inputs = {
-        comp: {socket.name: {"type": socket.type, "is_optional": not socket.is_mandatory} for socket in data}
+        comp: {socket.name: {"type": socket.type, "is_mandatory": socket.is_mandatory} for socket in data}
         for comp, data in find_pipeline_inputs(graph).items()
         if data
     }
