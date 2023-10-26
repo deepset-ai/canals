@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 
 import networkx
 
@@ -65,27 +65,6 @@ class Connection:
             return self.consumer_socket.is_mandatory
         return False
 
-    # def to_buffer_key(self) -> Tuple[str, str, str, str]:
-    #     return (
-    #         self.producer_component,
-    #         self.producer_socket.name if self.producer_socket else None,
-    #         self.consumer_component,
-    #         self.consumer_socket.name if self.consumer_socket else None,
-    #     )
-
-    # def add_to_buffer(
-    #     self, value, buffer: Dict[Tuple[str, str, str, str], Any]
-    # ) -> Dict[Tuple[str, str, str, str], Any]:
-    #     if self.consumer_socket.is_mandatory:
-    #         if self.consumer_socket.is_variadic:
-    #             if not self in buffer:
-    #                 buffer[self] = []
-    #             buffer[self].append(value)
-    #         else:
-    #             buffer[self] = value
-
-    #     return buffer
-
 
 class Pipeline:
     """
@@ -113,6 +92,8 @@ class Pipeline:
         self.metadata = metadata or {}
         self.max_loops_allowed = max_loops_allowed
         self.graph = networkx.MultiDiGraph()
+        self._connections: List[Connection] = []
+        self._mandatory_connections: Dict[str, List[Connection]] = defaultdict(list)
         self.debug: Dict[int, Dict[str, Any]] = {}
         self.debug_path = Path(debug_path)
 
@@ -358,9 +339,14 @@ class Pipeline:
             from_socket=from_socket,
             to_socket=to_socket,
         )
-
         # Stores the name of the nodes that will send its output to this socket
         to_socket.sender.append(from_node)
+
+        # Stores the Connection object for easier access during run()
+        connection = Connection(from_node, from_socket, to_node, to_socket)
+        self._connections.append(connection)
+        if connection.is_mandatory():
+            self._mandatory_connections[to_node].append(connection)
 
     def get_component(self, name: str) -> Component:
         """
@@ -444,28 +430,31 @@ class Pipeline:
         # If the pipeline has branches of different lengths, it's possible that a node has to
         # wait a bit and let other nodes pass before receiving all the input data it needs.
         #
-        # if debug:
-        #     os.makedirs("debug", exist_ok=True)
 
+        self._clear_visits_count()
         data = validate_pipeline_input(self.graph, input_values=data)
         logger.info("Pipeline execution started.")
 
-        # List all the input/output socket pairs - for quicker access
-        connections = [
-            Connection(from_node, data["from_socket"], to_node, data["to_socket"])
-            for from_node, to_node, data in self.graph.edges.data()
-        ]
+        self.debug = {}
+        if debug:
+            logger.info("Debug mode ON.")
+            os.makedirs("debug", exist_ok=True)
 
-        # List all mandatory connections for all components
-        mandatory_input_sockets = defaultdict(list)
-        for connection in connections:
-            if connection.is_mandatory():
-                mandatory_input_sockets[connection.consumer_component].append(connection)
+        logger.debug(
+            "Mandatory connections:\n%s",
+            "\n".join(
+                f" - {component}: {', '.join([str(s) for s in sockets])}"
+                for component, sockets in self._mandatory_connections.items()
+            ),
+        )
+
+        self.warm_up()
 
         # Prepare the inputs buffer and components queue
         components_queue: List[str] = []
-        mandatory_inputs_buffer: Dict[Connection, Any] = {}
-        optional_inputs_buffer: Dict[Connection, Any] = {}
+        mandatory_values_buffer: Dict[Connection, Any] = {}
+        optional_values_buffer: Dict[Connection, Any] = {}
+        pipeline_output: Dict[str, Dict[str, Any]] = defaultdict(dict)
 
         for node_name, input_data in data.items():
             for socket_name, value in input_data.items():
@@ -473,161 +462,79 @@ class Pipeline:
                     None, None, node_name, self.graph.nodes[node_name]["input_sockets"][socket_name]
                 )
                 if connection.is_mandatory():
-                    mandatory_input_sockets[connection.consumer_component].append(connection)
-
-                    mandatory_inputs_buffer[connection] = value
+                    mandatory_values_buffer[connection] = value
                     if connection.consumer_component not in components_queue:
                         components_queue.append(connection.consumer_component)
                 else:
-                    optional_inputs_buffer[connection] = value
-
-        logger.debug(
-            "Mandatory connections detected:\n%s",
-            "\n".join(
-                f" - {component}: {', '.join([str(s) for s in sockets])}"
-                for component, sockets in mandatory_input_sockets.items()
-            ),
-        )
+                    optional_values_buffer[connection] = value
 
         pipeline_output: Dict[str, Dict[str, Any]] = defaultdict(dict)
-        self._clear_visits_count()
-        self.warm_up()
-
-        if debug:
-            logger.info("Debug mode ON.")
-        self.debug = {}
 
         # *** PIPELINE EXECUTION LOOP ***
         # We select the nodes to run by popping them in FIFO order from the components queue.
         step = 0
         while components_queue:
             step += 1
-
-            # if debug:
-            #     self._record_pipeline_step(step, mandatory_inputs_buffer, pipeline_output)
-
-            logger.debug(
-                "> Queue at step %s: %s %s %s",
-                step,
-                components_queue,
-                {k: v for k, v in mandatory_inputs_buffer.items()},
-                {k: v for k, v in optional_inputs_buffer.items()},
-            )
+            if debug:
+                self._record_pipeline_step(
+                    step, components_queue, mandatory_values_buffer, optional_values_buffer, pipeline_output
+                )
 
             component_name = components_queue.pop(0)
-
-            # Make sure it didn't run too many times already
+            logger.debug("> Queue at step %s: %s %s %s", step, component_name, components_queue)
             self._check_max_loops(component_name)
 
-            # **** IS IT MY TURN YET? ****
-            # Check if the component should be run or not
-            received_input_sockets = set(
-                connection
-                for connection in mandatory_inputs_buffer.keys()
-                if connection.consumer_component == component_name
-            )
-            expected_input_sockets = set(mandatory_input_sockets[component_name])
-            if expected_input_sockets.issubset(received_input_sockets):
-                logger.debug("Component '%s' is ready to run. All mandatory inputs received.", component_name)
-            else:
-                # Special check for variadics: only wait for inputs that are still being computed
-                missing_sockets: Set[Connection] = expected_input_sockets - received_input_sockets
-                sockets_to_wait = []
-                for missing_socket in missing_sockets:
-                    if any(
-                        networkx.has_path(self.graph, component_to_run, missing_socket.producer_component)
-                        for component_to_run in components_queue
-                    ):
-                        sockets_to_wait.append(missing_socket)
-                if not sockets_to_wait:
-                    # Just run the component: missing sockets will never arrive
-                    logger.debug(
-                        "Component '%s' is ready to run. Variadic input received the expected values.", component_name
-                    )
-                else:
-                    logger.debug(
-                        "Component '%s' is not ready to run, some inputs are still missing: %s",
-                        component_name,
-                        sockets_to_wait,
-                    )
-                    if not mandatory_inputs_buffer:
-                        # What if there are no components to wait for?
-                        raise PipelineRuntimeError(
-                            f"'{component_name}' is stuck waiting for input, but there are no other components to run. "
-                            "This is likely a Canals bug. Open an issue at https://github.com/deepset-ai/canals."
-                        )
-                    components_queue.append(component_name)
-                    continue
-
             # **** RUN THE NODE ****
-            # It is our turn! The node is ready to run and all necessary inputs are present
-            inputs = defaultdict(list)
-            mandatory_inputs: List[Connection] = []
-            for connection in mandatory_inputs_buffer.keys():
-                if connection.consumer_component == component_name:
-                    mandatory_inputs.append(connection)
-            for key in mandatory_inputs:
-                value = mandatory_inputs_buffer.pop(key)
-                if key.consumer_socket.is_variadic:
-                    inputs[key.consumer_socket.name].append(value)
-                else:
-                    inputs[key.consumer_socket.name] = value
+            if self._ready_to_run(component_name, mandatory_values_buffer, components_queue):
+                inputs = {
+                    **self._extract_inputs_from_buffer(component_name, mandatory_values_buffer),
+                    **self._extract_inputs_from_buffer(component_name, optional_values_buffer),
+                }
+                outputs = self._run_component(name=component_name, inputs=dict(inputs))
 
-            optional_inputs: List[Connection] = []
-            for connection in optional_inputs_buffer.keys():
-                if connection.consumer_component == component_name:
-                    optional_inputs.append(connection)
-            for key in optional_inputs:
-                value = optional_inputs_buffer.pop(key)
-                if key.consumer_socket.is_variadic:
-                    inputs[key.consumer_socket.name].append(value)
-                else:
-                    inputs[key.consumer_socket.name] = value
+                # **** PROCESS THE OUTPUT ****
+                for socket_name, value in outputs.items():
+                    targets = [
+                        connection
+                        for connection in self._connections
+                        if connection.producer_component == component_name
+                        and connection.producer_socket.name == socket_name
+                    ]
+                    if not targets:
+                        pipeline_output[component_name][socket_name] = value
+                    else:
+                        for target in targets:
+                            if target.is_mandatory():
+                                mandatory_values_buffer[target] = value
+                                if target.consumer_component not in components_queue:
+                                    components_queue.append(target.consumer_component)
+                            else:
+                                optional_values_buffer[target] = value
 
-            output = self._run_component(name=component_name, inputs=dict(inputs))
-
-            # **** PROCESS THE OUTPUT ****
-            # The node run successfully. Let's store or distribute the output it produced.
-            for socket_name, value in output.items():
-                targets = [
-                    connection
-                    for connection in connections
-                    if connection.producer_component == component_name
-                    and connection.producer_socket.name == socket_name
-                ]
-                if not targets:
-                    pipeline_output[component_name][socket_name] = value
-                else:
-                    for target in targets:
-                        if target.is_mandatory():
-                            mandatory_inputs_buffer[target] = value
-                            if target.consumer_component not in components_queue:
-                                components_queue.append(target.consumer_component)
-                        else:
-                            optional_inputs_buffer[target] = value
-
-        # if debug:
-        #     self._record_pipeline_step(step + 1, mandatory_inputs_buffer, pipeline_output)
-
-        #     # Save to json
-        #     os.makedirs(self.debug_path, exist_ok=True)
-        #     with open(self.debug_path / "data.json", "w", encoding="utf-8") as datafile:
-        #         json.dump(self.debug, datafile, indent=4, default=str)
-
-        #     # Store in the output
-        #     pipeline_output["_debug"] = self.debug  # type: ignore
+        if debug:
+            self._record_pipeline_step(
+                step + 1, step, components_queue, mandatory_values_buffer, optional_values_buffer, pipeline_output
+            )
+            os.makedirs(self.debug_path, exist_ok=True)
+            with open(self.debug_path / "data.json", "w", encoding="utf-8") as datafile:
+                json.dump(self.debug, datafile, indent=4, default=str)
+            pipeline_output["_debug"] = self.debug
 
         logger.info("Pipeline executed successfully.")
         return dict(pipeline_output)
 
-    def _record_pipeline_step(self, step, inputs_buffer, pipeline_output):
+    def _record_pipeline_step(
+        self, step, components_queue, mandatory_values_buffer, optional_values_buffer, pipeline_output
+    ):
         """
         Stores a snapshot of this step into the self.debug dictionary of the pipeline.
         """
         mermaid_graph = _convert_for_debug(deepcopy(self.graph))
         self.debug[step] = {
             "time": datetime.datetime.now(),
-            "inputs_buffer": list(inputs_buffer.items()),
+            "components_queue": components_queue,
+            "mandatory_values_buffer": mandatory_values_buffer,
+            "optional_values_buffer": optional_values_buffer,
             "pipeline_output": pipeline_output,
             "diagram": mermaid_graph,
         }
@@ -647,6 +554,64 @@ class Pipeline:
             raise PipelineMaxLoops(
                 f"Maximum loops count ({self.max_loops_allowed}) exceeded for component '{component_name}'."
             )
+
+    def _ready_to_run(
+        self, component_name: str, mandatory_values_buffer: Dict[Connection, Any], components_queue: List[str]
+    ) -> bool:
+        """
+        Returns True if a component is ready to run, False otherwise.
+        """
+        received_connections = set(
+            conn for conn in mandatory_values_buffer.keys() if conn.consumer_component == component_name
+        )
+        expected_connections = set(self._mandatory_connections[component_name])
+        if expected_connections.issubset(received_connections):
+            logger.debug("Component '%s' is ready to run. All mandatory values were received.", component_name)
+            return True
+
+        # Check whether the missing values are still being computed
+        missing_connections: Set[Connection] = expected_connections - received_connections
+        connections_to_wait = []
+        for missing_conn in missing_connections:
+            if any(
+                networkx.has_path(self.graph, component_to_run, missing_conn.producer_component)
+                for component_to_run in components_queue
+            ):
+                connections_to_wait.append(missing_conn)
+        if not connections_to_wait:
+            # Just run the component: missing sockets will never arrive
+            logger.debug(
+                "Component '%s' is ready to run. A variadic input parameter received all the expected values.",
+                component_name,
+            )
+            return True
+
+        # Wait for the values
+        logger.debug(
+            "Component '%s' is not ready to run, some values are still missing: %s",
+            component_name,
+            connections_to_wait,
+        )
+        components_queue.append(component_name)
+        return False
+
+    def _extract_inputs_from_buffer(self, component_name: str, buffer: Dict[Connection, Any]) -> Dict[Connection, Any]:
+        """
+        Extract a component's input values from one of the value buffers.
+        """
+        inputs = defaultdict(list)
+        connections: List[Connection] = []
+
+        for connection in buffer.keys():
+            if connection.consumer_component == component_name:
+                connections.append(connection)
+        for key in connections:
+            value = buffer.pop(key)
+            if key.consumer_socket.is_variadic:
+                inputs[key.consumer_socket.name].append(value)
+            else:
+                inputs[key.consumer_socket.name] = value
+        return inputs
 
     def _run_component(self, name: str, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
