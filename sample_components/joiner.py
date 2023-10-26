@@ -38,12 +38,13 @@ class StringListJoiner:
 @component
 class FirstIntSelector:
     @component.output_types(output=int)
-    def run(self, input: Variadic[int]):
+    def run(self, inputs: Variadic[int]):
         """
         Take intd from multiple input nodes and return the first one
         that is not None. Since `input` is Variadic, we know we'll
         receive a List[int].
         """
-        for i in input:
-            if i is not None:
-                return {"output": i}
+        for inp in inputs:  # type: ignore
+            if inp is not None:
+                return {"output": inp}
+        return {}

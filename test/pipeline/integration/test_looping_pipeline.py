@@ -74,12 +74,12 @@ def test_pipeline_variadic_merger_input(tmp_path):
 
     pipeline.connect("merge", "below_10.value")
     pipeline.connect("below_10.below", "accumulator.value")
-    pipeline.connect("accumulator.value", "merge.input")
+    pipeline.connect("accumulator.value", "merge.inputs")
     pipeline.connect("below_10.above", "add_two.value")
 
     pipeline.draw(tmp_path / "looping_pipeline_variadic_merger_input.png")
 
-    results = pipeline.run({"merge": {"input": 4}})
+    results = pipeline.run({"merge": {"inputs": 4}})
     pprint(results)
     print("accumulator: ", accumulator.state)
 

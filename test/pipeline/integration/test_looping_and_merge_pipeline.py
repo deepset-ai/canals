@@ -59,7 +59,7 @@ def test_pipeline_variadic(tmp_path):
     pipeline.connect("merge", "below_10.value")
     pipeline.connect("below_10.below", "add_one.value")
     pipeline.connect("add_one.result", "counter.value")
-    pipeline.connect("counter.value", "merge.input")
+    pipeline.connect("counter.value", "merge.inputs")
     pipeline.connect("below_10.above", "add_two.value")
     pipeline.connect("add_two.result", "sum.values")
 
