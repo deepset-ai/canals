@@ -9,22 +9,22 @@ import pytest
 from canals import Pipeline
 from canals.component.sockets import InputSocket, OutputSocket
 from canals.errors import PipelineMaxLoops, PipelineError, PipelineRuntimeError
-from sample_components import AddFixedValue, Threshold, MergeLoop, Double
+from sample_components import AddFixedValue, Threshold, Double, Sum
 from canals.testing.factory import component_class
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-# def test_max_loops():
-#     pipe = Pipeline(max_loops_allowed=10)
-#     pipe.add_component("add", AddFixedValue())
-#     pipe.add_component("threshold", Threshold(threshold=100))
-#     pipe.add_component("merge", MergeLoop(expected_type=int, inputs=["value_1", "value_2"]))
-#     pipe.connect("threshold.below", "add.value")
-#     pipe.connect("add.result", "merge.value_1")
-#     pipe.connect("merge.value", "threshold.value")
-#     with pytest.raises(PipelineMaxLoops):
-#         pipe.run({"merge": {"value_2": 1}})
+def test_max_loops():
+    pipe = Pipeline(max_loops_allowed=10)
+    pipe.add_component("add", AddFixedValue())
+    pipe.add_component("threshold", Threshold(threshold=100))
+    pipe.add_component("sum", Sum())
+    pipe.connect("threshold.below", "add.value")
+    pipe.connect("add.result", "sum.values")
+    pipe.connect("sum.total", "threshold.value")
+    with pytest.raises(PipelineMaxLoops):
+        pipe.run({"sum": {"values": 1}})
 
 
 def test_run_with_component_that_does_not_return_dict():
