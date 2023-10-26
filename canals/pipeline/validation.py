@@ -19,7 +19,7 @@ def _find_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, List[InputS
     input sockets, including all such sockets with default values.
     """
     return {
-        name: [socket for socket in data.get("input_sockets", {}).values() if not socket.sender]
+        name: [socket for socket in data.get("input_sockets", {}).values() if not socket.sender or socket.is_variadic]
         for name, data in graph.nodes(data=True)
     }
 
@@ -71,7 +71,7 @@ def _validate_input_sockets_are_connected(graph: networkx.MultiDiGraph, input_va
                 or not socket.name in inputs_for_node.keys()
                 or inputs_for_node.get(socket.name, None) is None
             )
-            if missing_input_value and socket.is_mandatory:
+            if missing_input_value and socket.is_mandatory and not socket.is_variadic:
                 raise ValueError(f"Missing input: {node}.{socket.name}")
 
 

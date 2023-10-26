@@ -545,7 +545,11 @@ class Pipeline:
                         "Component '%s' is ready to run. Variadic input received the expected values.", component_name
                     )
                 else:
-                    logger.debug("Component '%s' is not ready to run, some inputs are still missing.", component_name)
+                    logger.debug(
+                        "Component '%s' is not ready to run, some inputs are still missing: %s",
+                        component_name,
+                        sockets_to_wait,
+                    )
                     if not mandatory_inputs_buffer:
                         # What if there are no components to wait for?
                         raise PipelineRuntimeError(
@@ -580,7 +584,7 @@ class Pipeline:
                 else:
                     inputs[key.consumer_socket.name] = value
 
-            output = self._run_component(name=component_name, inputs=inputs)
+            output = self._run_component(name=component_name, inputs=dict(inputs))
 
             # **** PROCESS THE OUTPUT ****
             # The node run successfully. Let's store or distribute the output it produced.
@@ -614,7 +618,7 @@ class Pipeline:
         #     pipeline_output["_debug"] = self.debug  # type: ignore
 
         logger.info("Pipeline executed successfully.")
-        return pipeline_output
+        return dict(pipeline_output)
 
     def _record_pipeline_step(self, step, inputs_buffer, pipeline_output):
         """
@@ -651,7 +655,7 @@ class Pipeline:
         self.graph.nodes[name]["visits"] += 1
         instance = self.graph.nodes[name]["instance"]
         try:
-            logger.info("* Running %s (visits: %s)", name, self.graph.nodes[name]["visits"])
+            logger.info("* Running %s", name)
             logger.debug("   '%s' inputs: %s", name, inputs)
 
             outputs = instance.run(**inputs)
@@ -662,8 +666,7 @@ class Pipeline:
             # Make sure the component returned a dictionary
             if not isinstance(outputs, dict):
                 raise PipelineRuntimeError(
-                    f"Component '{name}' returned a value of type "
-                    f"'{getattr(type(outputs), '__name__', str(type(outputs)))}' instead of a dict. "
+                    f"Component '{name}' returned a value of type '{_type_name(type(outputs))}' instead of a dict. "
                     "Components must always return dictionaries: check the the documentation."
                 )
 
