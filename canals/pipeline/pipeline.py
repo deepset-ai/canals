@@ -512,6 +512,9 @@ class Pipeline:
         mandatory_values_buffer: Dict[Connection, Any],
         optional_values_buffer: Dict[Connection, Any],
     ):
+        """
+        Given a value and the connection it is being sent on, it updates the buffers and the components queue.
+        """
         if connection.is_mandatory():
             mandatory_values_buffer[connection] = value
             if connection.consumer_component and connection.consumer_component not in components_queue:
