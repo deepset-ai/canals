@@ -39,6 +39,28 @@ def test_pipeline(tmp_path):
     assert accumulator.state == 16
 
 
+def test_pipeline_direct_io_loop(tmp_path):
+    accumulator = Accumulate()
+
+    pipeline = Pipeline(max_loops_allowed=10)
+    pipeline.add_component("merge", MergeLoop(expected_type=int, inputs=["in_1", "in_2"]))
+    pipeline.add_component("below_10", Threshold(threshold=10))
+    pipeline.add_component("accumulator", accumulator)
+
+    pipeline.connect("merge.value", "below_10.value")
+    pipeline.connect("below_10.below", "accumulator.value")
+    pipeline.connect("accumulator.value", "merge.in_2")
+
+    pipeline.draw(tmp_path / "looping_pipeline_direct_io_loop.png")
+
+    results = pipeline.run({"merge": {"in_1": 4}})
+    pprint(results)
+    print("accumulator: ", accumulator.state)
+
+    assert results == {"below_10": {"above": 16}}
+    assert accumulator.state == 16
+
+
 def test_pipeline_fixed_merger_input(tmp_path):
     accumulator = Accumulate()
 
@@ -89,5 +111,6 @@ def test_pipeline_variadic_merger_input(tmp_path):
 
 if __name__ == "__main__":
     test_pipeline(Path(__file__).parent)
+    test_pipeline_direct_io_loop(Path(__file__).parent)
     test_pipeline_fixed_merger_input(Path(__file__).parent)
     test_pipeline_variadic_merger_input(Path(__file__).parent)

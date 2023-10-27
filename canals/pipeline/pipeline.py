@@ -9,7 +9,6 @@ import datetime
 import logging
 from pathlib import Path
 from copy import deepcopy
-from dataclasses import dataclass
 from collections import defaultdict
 
 import networkx
@@ -24,7 +23,7 @@ from canals.errors import (
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.validation import validate_pipeline_input, find_pipeline_inputs
-from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
+from canals.pipeline.connections import Connection, parse_connect_string, _find_matching_sockets
 from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
@@ -34,39 +33,6 @@ logger = logging.getLogger(__name__)
 # so that static analyzers won't be confused when derived classes
 # use those methods.
 T = TypeVar("T", bound="Pipeline")
-
-
-@dataclass
-class Connection:
-    producer_component: Optional[str]
-    producer_socket: Optional[OutputSocket]
-    consumer_component: Optional[str]
-    consumer_socket: Optional[InputSocket]
-
-    def __hash__(self):
-        return hash(
-            "-".join(
-                [
-                    self.producer_component if self.producer_component else "input",
-                    self.producer_socket.name if self.producer_socket else "",
-                    self.consumer_component if self.consumer_component else "output",
-                    self.consumer_socket.name if self.consumer_socket else "",
-                ]
-            )
-        )
-
-    def __repr__(self):
-        producer = f"{self.producer_component}.{self.producer_socket.name}" if self.producer_component else "input"
-        consumer = f"{self.consumer_component}.{self.consumer_socket.name}" if self.consumer_component else "output"
-        return f"{producer} --({_type_name(self.consumer_socket.type)})--> {consumer}"
-
-    def is_mandatory(self) -> bool:
-        """
-        Returns True if the connection goes to a mandatory input socket, False otherwise
-        """
-        if self.consumer_socket:
-            return self.consumer_socket.is_mandatory
-        return False
 
 
 class Pipeline:
@@ -275,8 +241,8 @@ class Pipeline:
                 not present in the pipeline, or the connections don't match by type, and so on).
         """
         # Edges may be named explicitly by passing 'node_name.edge_name' to connect().
-        from_node, from_socket_name = parse_connection(connect_from)
-        to_node, to_socket_name = parse_connection(connect_to)
+        from_node, from_socket_name = parse_connect_string(connect_from)
+        to_node, to_socket_name = parse_connect_string(connect_to)
 
         # Get the nodes data.
         try:
@@ -311,7 +277,7 @@ class Pipeline:
         # Note that if there is more than one possible connection but two sockets match by name, they're paired.
         from_sockets = [from_socket] if from_socket_name else list(from_sockets.values())
         to_sockets = [to_socket] if to_socket_name else list(to_sockets.values())
-        from_socket, to_socket = _find_unambiguous_connection(
+        from_socket, to_socket = _find_matching_sockets(
             sender_node=from_node, sender_sockets=from_sockets, receiver_node=to_node, receiver_sockets=to_sockets
         )
 
@@ -325,10 +291,10 @@ class Pipeline:
         """
         # Make sure the receiving socket isn't already connected, unless it's variadic. Sending sockets can be
         # connected as many times as needed, so they don't need this check
-        if to_socket.sender and not to_socket.is_variadic:
+        if to_socket.senders and not to_socket.is_variadic:
             raise PipelineConnectError(
                 f"Cannot connect '{from_node}.{from_socket.name}' with '{to_node}.{to_socket.name}': "
-                f"{to_node}.{to_socket.name} is already connected to {to_socket.sender}.\n"
+                f"{to_node}.{to_socket.name} is already connected to {to_socket.senders}.\n"
             )
 
         # Create the connection
@@ -343,7 +309,8 @@ class Pipeline:
             to_socket=to_socket,
         )
         # Stores the name of the nodes that will send its output to this socket
-        to_socket.sender.append(from_node)
+        from_socket.consumers.append(to_node)
+        to_socket.senders.append(from_node)
 
         # Stores the Connection object for easier access during run()
         connection = Connection(from_node, from_socket, to_node, to_socket)
@@ -419,7 +386,6 @@ class Pipeline:
 
         Args:
             data: the inputs to give to the input components of the Pipeline.
-            parameters: a dictionary with all the parameters of all the components, namespaced by component.
             debug: whether to collect and return debug information.
 
         Returns:
@@ -428,25 +394,6 @@ class Pipeline:
         Raises:
             PipelineRuntimeError: if the any of the components fail or return unexpected output.
         """
-        # **** The Pipeline.run() algorithm ****
-        #
-        # Nodes are run as soon as an input for them appears in the inputs buffer.
-        # When there's more than a node at once in the buffer (which means some
-        # branches are running in parallel or that there are loops) they are selected to
-        # run in FIFO order by the `inputs_buffer` OrderedDict.
-        #
-        # Inputs are labeled with the name of the node they're aimed for:
-        #
-        #   ````
-        #   inputs_buffer[target_node] = {"input_name": input_value, ...}
-        #   ```
-        #
-        # Nodes should wait until all the necessary input data has arrived before running.
-        # If they're popped from the input_buffer before they're ready, they're put back in.
-        # If the pipeline has branches of different lengths, it's possible that a node has to
-        # wait a bit and let other nodes pass before receiving all the input data it needs.
-        #
-
         self._clear_visits_count()
         data = validate_pipeline_input(self.graph, input_values=data)
         logger.info("Pipeline execution started.")

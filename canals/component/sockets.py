@@ -17,7 +17,7 @@ class InputSocket:
     type: Type
     is_mandatory: bool = True
     is_variadic: bool = field(init=False)
-    sender: List[str] = field(default_factory=list)
+    senders: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         try:
@@ -38,3 +38,4 @@ class InputSocket:
 class OutputSocket:
     name: str
     type: type
+    consumers: List[str] = field(default_factory=list)

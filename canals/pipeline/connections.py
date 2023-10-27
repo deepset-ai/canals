@@ -5,6 +5,7 @@ from typing import Tuple, Optional, List
 
 import logging
 import itertools
+from dataclasses import dataclass
 
 from canals.errors import PipelineConnectError
 from canals.type_utils import _types_are_compatible, _type_name
@@ -14,7 +15,40 @@ from canals.component.sockets import InputSocket, OutputSocket
 logger = logging.getLogger(__name__)
 
 
-def parse_connection(connection: str) -> Tuple[str, Optional[str]]:
+@dataclass
+class Connection:
+    producer_component: Optional[str]
+    producer_socket: Optional[OutputSocket]
+    consumer_component: Optional[str]
+    consumer_socket: Optional[InputSocket]
+
+    def __hash__(self):
+        return hash(
+            "-".join(
+                [
+                    self.producer_component if self.producer_component else "input",
+                    self.producer_socket.name if self.producer_socket else "",
+                    self.consumer_component if self.consumer_component else "output",
+                    self.consumer_socket.name if self.consumer_socket else "",
+                ]
+            )
+        )
+
+    def __repr__(self):
+        producer = f"{self.producer_component}.{self.producer_socket.name}" if self.producer_component else "input"
+        consumer = f"{self.consumer_component}.{self.consumer_socket.name}" if self.consumer_component else "output"
+        return f"{producer} --({_type_name(self.consumer_socket.type)})--> {consumer}"
+
+    def is_mandatory(self) -> bool:
+        """
+        Returns True if the connection goes to a mandatory input socket, False otherwise
+        """
+        if self.consumer_socket:
+            return self.consumer_socket.is_mandatory
+        return False
+
+
+def parse_connect_string(connection: str) -> Tuple[str, Optional[str]]:
     """
     Returns component-connection pairs from a connect_to/from string
     """
@@ -24,7 +58,7 @@ def parse_connection(connection: str) -> Tuple[str, Optional[str]]:
     return connection, None
 
 
-def _find_unambiguous_connection(
+def _find_matching_sockets(
     sender_node: str, receiver_node: str, sender_sockets: List[OutputSocket], receiver_sockets: List[InputSocket]
 ) -> Tuple[OutputSocket, InputSocket]:
     """
@@ -103,8 +137,8 @@ def _connections_status(
 
     receiver_sockets_entries = []
     for receiver_socket in receiver_sockets:
-        if receiver_socket.sender:
-            sender_status = f"sent by {','.join(receiver_socket.sender)}"
+        if receiver_socket.senders:
+            sender_status = f"sent by {','.join(receiver_socket.senders)}"
         else:
             sender_status = "available"
         receiver_sockets_entries.append(

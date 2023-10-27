@@ -45,5 +45,5 @@ def test_pipeline(tmp_path):
 
 
 if __name__ == "__main__":
-    # test_pipeline_one_node(Path(__file__).parent)
+    test_pipeline_one_node(Path(__file__).parent)
     test_pipeline(Path(__file__).parent)

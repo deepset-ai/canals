@@ -91,7 +91,7 @@ def test_find_pipeline_output_no_output():
     pipe.connect("comp1", "comp2")
     pipe.connect("comp2", "comp1")
 
-    assert find_pipeline_outputs(pipe.graph) == {}
+    assert find_pipeline_outputs(pipe.graph) == {"comp1": [], "comp2": []}
 
 
 def test_find_pipeline_output_one_output():
@@ -100,7 +100,7 @@ def test_find_pipeline_output_one_output():
     pipe.add_component("comp2", Double())
     pipe.connect("comp1", "comp2")
 
-    assert find_pipeline_outputs(pipe.graph) == {"comp2": [OutputSocket(name="value", type=int)]}
+    assert find_pipeline_outputs(pipe.graph) == {"comp1": [], "comp2": [OutputSocket(name="value", type=int)]}
 
 
 def test_find_pipeline_some_outputs_same_component():
@@ -110,7 +110,8 @@ def test_find_pipeline_some_outputs_same_component():
     pipe.connect("comp1", "comp2")
 
     assert find_pipeline_outputs(pipe.graph) == {
-        "comp2": [OutputSocket(name="even", type=int), OutputSocket(name="odd", type=int)]
+        "comp1": [],
+        "comp2": [OutputSocket(name="even", type=int), OutputSocket(name="odd", type=int)],
     }
 
 
@@ -123,6 +124,7 @@ def test_find_pipeline_some_outputs_different_components():
     pipe.connect("comp1", "comp3")
 
     assert find_pipeline_outputs(pipe.graph) == {
+        "comp1": [],
         "comp2": [OutputSocket(name="even", type=int), OutputSocket(name="odd", type=int)],
         "comp3": [
             OutputSocket(name="value", type=int),

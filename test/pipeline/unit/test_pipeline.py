@@ -113,7 +113,7 @@ def test_from_dict():
         "add": InputSocket(name="add", type=Optional[int], is_mandatory=False),
     }
     assert add_two["output_sockets"] == {
-        "result": OutputSocket(name="result", type=int),
+        "result": OutputSocket(name="result", type=int, consumers=["double"]),
     }
     assert add_two["visits"] == 0
 
@@ -121,7 +121,7 @@ def test_from_dict():
     add_default = pipe.graph.nodes["add_default"]
     assert add_default["instance"].add == 1
     assert add_default["input_sockets"] == {
-        "value": InputSocket(name="value", type=int, sender=["double"]),
+        "value": InputSocket(name="value", type=int, senders=["double"]),
         "add": InputSocket(name="add", type=Optional[int], is_mandatory=False),
     }
     assert add_default["output_sockets"] == {
@@ -133,10 +133,10 @@ def test_from_dict():
     double = pipe.graph.nodes["double"]
     assert double["instance"]
     assert double["input_sockets"] == {
-        "value": InputSocket(name="value", type=int, sender=["add_two"]),
+        "value": InputSocket(name="value", type=int, senders=["add_two"]),
     }
     assert double["output_sockets"] == {
-        "value": OutputSocket(name="value", type=int),
+        "value": OutputSocket(name="value", type=int, consumers=["add_default"]),
     }
     assert double["visits"] == 0
 
@@ -148,8 +148,8 @@ def test_from_dict():
         "double",
         {
             "conn_type": "int",
-            "from_socket": OutputSocket(name="result", type=int),
-            "to_socket": InputSocket(name="value", type=int, sender=["add_two"]),
+            "from_socket": OutputSocket(name="result", type=int, consumers=["double"]),
+            "to_socket": InputSocket(name="value", type=int, senders=["add_two"]),
         },
     )
     assert connections[1] == (
@@ -157,8 +157,8 @@ def test_from_dict():
         "add_default",
         {
             "conn_type": "int",
-            "from_socket": OutputSocket(name="value", type=int),
-            "to_socket": InputSocket(name="value", type=int, sender=["double"]),
+            "from_socket": OutputSocket(name="value", type=int, consumers=["add_default"]),
+            "to_socket": InputSocket(name="value", type=int, senders=["double"]),
         },
     )
 
@@ -205,7 +205,7 @@ def test_from_dict_with_components_instances():
         "add": InputSocket(name="add", type=Optional[int], is_mandatory=False),
     }
     assert add_two_data["output_sockets"] == {
-        "result": OutputSocket(name="result", type=int),
+        "result": OutputSocket(name="result", type=int, consumers=["double"]),
     }
     assert add_two_data["visits"] == 0
 
@@ -214,11 +214,11 @@ def test_from_dict_with_components_instances():
     assert add_default_data["instance"] is add_default
     assert add_default_data["instance"].add == 1
     assert add_default_data["input_sockets"] == {
-        "value": InputSocket(name="value", type=int, sender=["double"]),
+        "value": InputSocket(name="value", type=int, senders=["double"]),
         "add": InputSocket(name="add", type=Optional[int], is_mandatory=False),
     }
     assert add_default_data["output_sockets"] == {
-        "result": OutputSocket(name="result", type=int),
+        "result": OutputSocket(name="result", type=int, consumers=[]),
     }
     assert add_default_data["visits"] == 0
 
@@ -226,10 +226,10 @@ def test_from_dict_with_components_instances():
     double = pipe.graph.nodes["double"]
     assert double["instance"]
     assert double["input_sockets"] == {
-        "value": InputSocket(name="value", type=int, sender=["add_two"]),
+        "value": InputSocket(name="value", type=int, senders=["add_two"]),
     }
     assert double["output_sockets"] == {
-        "value": OutputSocket(name="value", type=int),
+        "value": OutputSocket(name="value", type=int, consumers=["add_default"]),
     }
     assert double["visits"] == 0
 
@@ -241,8 +241,8 @@ def test_from_dict_with_components_instances():
         "double",
         {
             "conn_type": "int",
-            "from_socket": OutputSocket(name="result", type=int),
-            "to_socket": InputSocket(name="value", type=int, sender=["add_two"]),
+            "from_socket": OutputSocket(name="result", type=int, consumers=["double"]),
+            "to_socket": InputSocket(name="value", type=int, senders=["add_two"]),
         },
     )
     assert connections[1] == (
@@ -250,8 +250,8 @@ def test_from_dict_with_components_instances():
         "add_default",
         {
             "conn_type": "int",
-            "from_socket": OutputSocket(name="value", type=int),
-            "to_socket": InputSocket(name="value", type=int, sender=["double"]),
+            "from_socket": OutputSocket(name="value", type=int, consumers=["add_default"]),
+            "to_socket": InputSocket(name="value", type=int, senders=["double"]),
         },
     )
 
