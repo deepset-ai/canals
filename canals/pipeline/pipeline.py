@@ -63,8 +63,8 @@ class Pipeline:
         self.graph = networkx.MultiDiGraph()
         self._connections: List[Connection] = []
         self._mandatory_connections: Dict[str, List[Connection]] = defaultdict(list)
-        self.debug: Dict[int, Dict[str, Any]] = {}
-        self.debug_path = Path(debug_path)
+        self._debug: Dict[int, Dict[str, Any]] = {}
+        self._debug_path = Path(debug_path)
 
     def __eq__(self, other) -> bool:
         """
@@ -378,9 +378,7 @@ class Pipeline:
                 logger.info("Warming up component %s...", node)
                 self.graph.nodes[node]["instance"].warm_up()
 
-    def run(  # pylint: disable=too-many-locals,too-many-branches
-        self, data: Dict[str, Any], debug: bool = False
-    ) -> Dict[str, Any]:
+    def run(self, data: Dict[str, Any], debug: bool = False) -> Dict[str, Any]:  # pylint: disable=too-many-locals
         """
         Runs the pipeline.
 
@@ -398,7 +396,7 @@ class Pipeline:
         data = validate_pipeline_input(self.graph, input_values=data)
         logger.info("Pipeline execution started.")
 
-        self.debug = {}
+        self._debug = {}
         if debug:
             logger.info("Debug mode ON.")
             os.makedirs("debug", exist_ok=True)
@@ -424,12 +422,9 @@ class Pipeline:
                 connection = Connection(
                     None, None, node_name, self.graph.nodes[node_name]["input_sockets"][socket_name]
                 )
-                if connection.is_mandatory():
-                    mandatory_values_buffer[connection] = value
-                    if connection.consumer_component and connection.consumer_component not in components_queue:
-                        components_queue.append(connection.consumer_component)
-                else:
-                    optional_values_buffer[connection] = value
+                self._add_value_to_buffers(
+                    value, connection, components_queue, mandatory_values_buffer, optional_values_buffer
+                )
 
         # *** PIPELINE EXECUTION LOOP ***
         step = 0
@@ -445,41 +440,34 @@ class Pipeline:
             self._check_max_loops(component_name)
 
             # **** RUN THE NODE ****
-            if self._ready_to_run(component_name, mandatory_values_buffer, components_queue):
-                inputs = {
-                    **self._extract_inputs_from_buffer(component_name, mandatory_values_buffer),
-                    **self._extract_inputs_from_buffer(component_name, optional_values_buffer),
-                }
-                outputs = self._run_component(name=component_name, inputs=dict(inputs))
+            if not self._ready_to_run(component_name, mandatory_values_buffer, components_queue):
+                continue
 
-                # **** PROCESS THE OUTPUT ****
-                for socket_name, value in outputs.items():
-                    targets = [
-                        connection
-                        for connection in self._connections
-                        if connection.producer_component == component_name
-                        and connection.producer_socket
-                        and connection.producer_socket.name == socket_name
-                    ]
-                    if not targets:
-                        pipeline_output[component_name][socket_name] = value
-                    else:
-                        for target in targets:
-                            if target.is_mandatory():
-                                mandatory_values_buffer[target] = value
-                                if target.consumer_component and target.consumer_component not in components_queue:
-                                    components_queue.append(target.consumer_component)
-                            else:
-                                optional_values_buffer[target] = value
+            inputs = {
+                **self._extract_inputs_from_buffer(component_name, mandatory_values_buffer),
+                **self._extract_inputs_from_buffer(component_name, optional_values_buffer),
+            }
+            outputs = self._run_component(name=component_name, inputs=dict(inputs))
+
+            # **** PROCESS THE OUTPUT ****
+            for socket_name, value in outputs.items():
+                targets = self._collect_targets(component_name, socket_name)
+                if not targets:
+                    pipeline_output[component_name][socket_name] = value
+                else:
+                    for target in targets:
+                        self._add_value_to_buffers(
+                            value, target, components_queue, mandatory_values_buffer, optional_values_buffer
+                        )
 
         if debug:
             self._record_pipeline_step(
                 step + 1, components_queue, mandatory_values_buffer, optional_values_buffer, pipeline_output
             )
-            os.makedirs(self.debug_path, exist_ok=True)
-            with open(self.debug_path / "data.json", "w", encoding="utf-8") as datafile:
-                json.dump(self.debug, datafile, indent=4, default=str)
-            pipeline_output["_debug"] = self.debug  # type: ignore
+            os.makedirs(self._debug_path, exist_ok=True)
+            with open(self._debug_path / "data.json", "w", encoding="utf-8") as datafile:
+                json.dump(self._debug, datafile, indent=4, default=str)
+            pipeline_output["_debug"] = self._debug  # type: ignore
 
         logger.info("Pipeline executed successfully.")
         return dict(pipeline_output)
@@ -491,7 +479,7 @@ class Pipeline:
         Stores a snapshot of this step into the self.debug dictionary of the pipeline.
         """
         mermaid_graph = _convert_for_debug(deepcopy(self.graph))
-        self.debug[step] = {
+        self._debug[step] = {
             "time": datetime.datetime.now(),
             "components_queue": components_queue,
             "mandatory_values_buffer": mandatory_values_buffer,
@@ -515,6 +503,21 @@ class Pipeline:
             raise PipelineMaxLoops(
                 f"Maximum loops count ({self.max_loops_allowed}) exceeded for component '{component_name}'."
             )
+
+    def _add_value_to_buffers(
+        self,
+        value: Any,
+        connection: Connection,
+        components_queue: List[str],
+        mandatory_values_buffer: Dict[Connection, Any],
+        optional_values_buffer: Dict[Connection, Any],
+    ):
+        if connection.is_mandatory():
+            mandatory_values_buffer[connection] = value
+            if connection.consumer_component and connection.consumer_component not in components_queue:
+                components_queue.append(connection.consumer_component)
+        else:
+            optional_values_buffer[connection] = value
 
     def _ready_to_run(
         self, component_name: str, mandatory_values_buffer: Dict[Connection, Any], components_queue: List[str]
@@ -605,3 +608,16 @@ class Pipeline:
             ) from e
 
         return outputs
+
+    def _collect_targets(self, component_name: str, socket_name: str) -> List[Connection]:
+        """
+        Given and component and an output socket names, returns a list of Connections
+        where these are the producers. Used to route output.
+        """
+        return [
+            connection
+            for connection in self._connections
+            if connection.producer_component == component_name
+            and connection.producer_socket
+            and connection.producer_socket.name == socket_name
+        ]
