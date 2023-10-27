@@ -19,7 +19,7 @@ def find_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, List[InputSo
     input sockets, including all such sockets with default values.
     """
     return {
-        name: [socket for socket in data.get("input_sockets", {}).values() if not socket.sender]
+        name: [socket for socket in data.get("input_sockets", {}).values() if not socket.sender or socket.is_variadic]
         for name, data in graph.nodes(data=True)
     }
 

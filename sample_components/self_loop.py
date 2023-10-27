@@ -1,6 +1,5 @@
-from typing import Optional
-
 from canals import component
+from canals.component.types import Variadic
 
 
 @component
@@ -14,16 +13,12 @@ class SelfLoop:
         self.target = target
 
     @component.output_types(current_value=int, final_result=int)
-    def run(self, initial_value: Optional[int] = None, current_value: Optional[int] = None):
+    def run(self, values: Variadic[int]):
         """
-        Decreases the initial value in steps of 1 until the target value is reached.
+        Decreases the input value in steps of 1 until the target value is reached.
         """
-        if initial_value:
-            current_value = initial_value
-
-        if current_value:
-            current_value -= 1
-
-        if current_value == self.target:
-            return {"final_result": current_value}
-        return {"current_value": current_value}
+        value = values[0]  # type: ignore
+        value -= 1
+        if value == self.target:
+            return {"final_result": value}
+        return {"current_value": value}
