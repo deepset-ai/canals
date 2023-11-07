@@ -108,6 +108,12 @@ class Component(Protocol):
     def run(self, *args: Any, **kwargs: Any):  # pylint: disable=missing-function-docstring
         ...
 
+    def inputs(self):
+        ...
+
+    def outputs(self):
+        ...
+
 
 class ComponentMeta(type):
     def __call__(cls, *args, **kwargs):
@@ -137,6 +143,21 @@ class ComponentMeta(type):
                 )
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }
+
+        # Dynamically attach the inputs method
+        def inputs_method(inst):
+            return {
+                name: {"type": socket.type, "is_optional": socket.is_optional}
+                for name, socket in inst.__canals_input__.items()
+            }
+
+        instance.inputs = inputs_method.__get__(instance)
+
+        # Dynamically attach the outputs method
+        def outputs_method(inst):
+            return {name: {"type": socket.type} for name, socket in inst.__canals_output__.items()}
+
+        instance.outputs = outputs_method.__get__(instance)
 
         return instance
 
