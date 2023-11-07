@@ -1,4 +1,5 @@
-from typing import Any
+import typing
+from typing import Any, Optional
 
 import pytest
 
@@ -163,3 +164,133 @@ def test_component_decorator_set_it_as_component():
 
     comp = MockComponent()
     assert isinstance(comp, Component)
+
+
+def test_inputs_method_no_inputs():
+    @component
+    class MockComponent:
+        def run(self):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._input_sockets() == {}
+
+
+def test_inputs_method_one_input():
+    @component
+    class MockComponent:
+        def run(self, value: int):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._input_sockets() == {"value": {"is_optional": False, "type": int}}
+
+
+def test_inputs_method_multiple_inputs():
+    @component
+    class MockComponent:
+        def run(self, value1: int, value2: str):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._input_sockets() == {
+        "value1": {"is_optional": False, "type": int},
+        "value2": {"is_optional": False, "type": str},
+    }
+
+
+def test_inputs_method_multiple_inputs_optional():
+    @component
+    class MockComponent:
+        def run(self, value1: int, value2: Optional[str]):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._input_sockets() == {
+        "value1": {"is_optional": False, "type": int},
+        "value2": {"is_optional": True, "type": typing.Optional[str]},
+    }
+
+
+def test_inputs_method_variadic_positional_args():
+    @component
+    class MockComponent:
+        def __init__(self):
+            component.set_input_types(self, value=Any)
+
+        def run(self, *args):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._input_sockets() == {"value": {"is_optional": False, "type": typing.Any}}
+
+
+def test_inputs_method_variadic_keyword_positional_args():
+    @component
+    class MockComponent:
+        def __init__(self):
+            component.set_input_types(self, value=Any)
+
+        def run(self, **kwargs):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._input_sockets() == {"value": {"is_optional": False, "type": typing.Any}}
+
+
+def test_inputs_dynamic_from_init():
+    @component
+    class MockComponent:
+        def __init__(self):
+            component.set_input_types(self, value=int)
+
+        def run(self, value: int, **kwargs):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._input_sockets() == {"value": {"is_optional": False, "type": int}}
+
+
+def test_outputs_method_no_outputs():
+    @component
+    class MockComponent:
+        def run(self):
+            return {}
+
+    comp = MockComponent()
+    assert comp._output_sockets() == {}
+
+
+def test_outputs_method_one_output():
+    @component
+    class MockComponent:
+        @component.output_types(value=int)
+        def run(self):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._output_sockets() == {"value": {"type": int}}
+
+
+def test_outputs_method_multiple_outputs():
+    @component
+    class MockComponent:
+        @component.output_types(value1=int, value2=str)
+        def run(self):
+            return {"value1": 1, "value2": "test"}
+
+    comp = MockComponent()
+    assert comp._output_sockets() == {"value1": {"type": int}, "value2": {"type": str}}
+
+
+def test_outputs_dynamic_from_init():
+    @component
+    class MockComponent:
+        def __init__(self):
+            component.set_output_types(self, value=int)
+
+        def run(self):
+            return {"value": 1}
+
+    comp = MockComponent()
+    assert comp._output_sockets() == {"value": {"type": int}}
