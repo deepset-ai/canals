@@ -70,6 +70,7 @@
 
 import logging
 import inspect
+import types
 from typing import Protocol, runtime_checkable, Any
 from types import new_class
 
@@ -108,10 +109,10 @@ class Component(Protocol):
     def run(self, *args: Any, **kwargs: Any):  # pylint: disable=missing-function-docstring
         ...
 
-    def inputs(self):
+    def inputs(self):  # pylint: disable=missing-function-docstring
         ...
 
-    def outputs(self):
+    def outputs(self):  # pylint: disable=missing-function-docstring
         ...
 
 
@@ -144,20 +145,20 @@ class ComponentMeta(type):
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }
 
-        # Dynamically attach the inputs method
-        def inputs_method(inst):
+        # Dynamically attach the inputs method to instance, not class
+        def inputs_method(self):
             return {
                 name: {"type": socket.type, "is_optional": socket.is_optional}
-                for name, socket in inst.__canals_input__.items()
+                for name, socket in self.__canals_input__.items()
             }
 
-        instance.inputs = inputs_method.__get__(instance)
+        instance.inputs = types.MethodType(inputs_method, instance)
 
-        # Dynamically attach the outputs method
-        def outputs_method(inst):
-            return {name: {"type": socket.type} for name, socket in inst.__canals_output__.items()}
+        # Dynamically attach the outputs method to instance, not class
+        def outputs_method(self):
+            return {name: {"type": socket.type} for name, socket in self.__canals_output__.items()}
 
-        instance.outputs = outputs_method.__get__(instance)
+        instance.outputs = types.MethodType(outputs_method, instance)
 
         return instance
 
