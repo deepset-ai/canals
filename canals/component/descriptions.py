@@ -12,8 +12,10 @@ def component_inputs(component: Any) -> Dict[str, Dict[str, Any]]:
     :raise: Throws a ValueError if the class of component instance is not appropriately decorated with @component.
     """
     if not hasattr(component, "__canals_input__"):
-        raise ValueError(f"Component {component} does not have defined inputs or is improperly decorated. "
-                         "Ensure it is a valid @component with declared inputs.")
+        raise ValueError(
+            f"Component {component} does not have defined inputs or is improperly decorated. "
+            "Ensure it is a valid @component with declared inputs."
+        )
 
     return {
         name: {"type": socket.type, "is_optional": socket.is_optional}
@@ -34,6 +36,7 @@ def component_outputs(component: Any) -> Dict[str, Dict[str, Any]]:
     if not hasattr(component, "__canals_output__"):
         raise ValueError(
             f"The specified component {component} does not have defined outputs or is not properly decorated. "
-            "Check that it is a valid @component with outputs specified.")
+            "Check that it is a valid @component with outputs specified."
+        )
 
     return {name: {"type": socket.type} for name, socket in component.__canals_output__.items()}
