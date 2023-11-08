@@ -5,6 +5,7 @@ import inspect
 
 from canals.pipeline import Pipeline
 from canals.errors import PipelineValidationError
+from canals.component.types import Variadic
 from canals.component.sockets import InputSocket, OutputSocket
 from canals.pipeline.descriptions import find_pipeline_inputs, find_pipeline_outputs
 from sample_components import Double, AddFixedValue, Sum, Parity
@@ -66,7 +67,7 @@ def test_find_pipeline_variable_input_nodes_in_the_pipeline():
     pipe = Pipeline()
     pipe.add_component("comp1", AddFixedValue())
     pipe.add_component("comp2", Double())
-    pipe.add_component("comp3", Sum(inputs=["in_1", "in_2"]))
+    pipe.add_component("comp3", Sum())
 
     assert find_pipeline_inputs(pipe.graph) == {
         "comp1": [
@@ -75,8 +76,7 @@ def test_find_pipeline_variable_input_nodes_in_the_pipeline():
         ],
         "comp2": [InputSocket(name="value", type=int)],
         "comp3": [
-            InputSocket(name="in_1", type=Optional[int]),
-            InputSocket(name="in_2", type=Optional[int]),
+            InputSocket(name="values", type=Variadic[int]),
         ],
     }
 

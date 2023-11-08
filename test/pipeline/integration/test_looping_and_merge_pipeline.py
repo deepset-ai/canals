@@ -18,7 +18,7 @@ def test_pipeline_fixed(tmp_path):
     pipeline = Pipeline(max_loops_allowed=10)
     pipeline.add_component("add_zero", AddFixedValue(add=0))
     pipeline.add_component("merge", MergeLoop(expected_type=int, inputs=["in_1", "in_2"]))
-    pipeline.add_component("sum", Sum(inputs=["in_1", "in_2"]))
+    pipeline.add_component("sum", Sum())
     pipeline.add_component("below_10", Threshold(threshold=10))
     pipeline.add_component("add_one", AddFixedValue(add=1))
     pipeline.add_component("counter", accumulator)
@@ -30,12 +30,12 @@ def test_pipeline_fixed(tmp_path):
     pipeline.connect("add_one.result", "counter.value")
     pipeline.connect("counter.value", "merge.in_2")
     pipeline.connect("below_10.above", "add_two.value")
-    pipeline.connect("add_two.result", "sum.in_2")
+    pipeline.connect("add_two.result", "sum.values")
 
     pipeline.draw(tmp_path / "looping_and_fixed_merge_pipeline.png")
 
     results = pipeline.run(
-        {"add_zero": {"value": 8}, "sum": {"in_1": 2}},
+        {"add_zero": {"value": 8}, "sum": {"values": 2}},
     )
     pprint(results)
     print("accumulate: ", accumulator.state)
@@ -49,7 +49,7 @@ def test_pipeline_variadic(tmp_path):
     pipeline = Pipeline(max_loops_allowed=10)
     pipeline.add_component("add_zero", AddFixedValue(add=0))
     pipeline.add_component("merge", FirstIntSelector())
-    pipeline.add_component("sum", Sum(inputs=["in_1", "in_2"]))
+    pipeline.add_component("sum", Sum())
     pipeline.add_component("below_10", Threshold(threshold=10))
     pipeline.add_component("add_one", AddFixedValue(add=1))
     pipeline.add_component("counter", accumulator)
@@ -61,12 +61,12 @@ def test_pipeline_variadic(tmp_path):
     pipeline.connect("add_one.result", "counter.value")
     pipeline.connect("counter.value", "merge.inputs")
     pipeline.connect("below_10.above", "add_two.value")
-    pipeline.connect("add_two.result", "sum.in_2")
+    pipeline.connect("add_two.result", "sum.values")
 
     pipeline.draw(tmp_path / "looping_and_variadic_merge_pipeline.png")
 
     results = pipeline.run(
-        {"add_zero": {"value": 8}, "sum": {"in_1": 2}},
+        {"add_zero": {"value": 8}, "sum": {"values": 2}},
     )
     pprint(results)
     print("accumulate: ", accumulator.state)
