@@ -121,7 +121,7 @@ def test_from_dict():
     add_default = pipe.graph.nodes["add_default"]
     assert add_default["instance"].add == 1
     assert add_default["input_sockets"] == {
-        "value": InputSocket(name="value", type=int, sender=["double"]),
+        "value": InputSocket(name="value", type=int, senders=["double"]),
         "add": InputSocket(name="add", type=Optional[int], has_default=True),
     }
     assert add_default["output_sockets"] == {
@@ -214,7 +214,7 @@ def test_from_dict_with_components_instances():
     assert add_default_data["instance"] is add_default
     assert add_default_data["instance"].add == 1
     assert add_default_data["input_sockets"] == {
-        "value": InputSocket(name="value", type=int, sender=["double"]),
+        "value": InputSocket(name="value", type=int, senders=["double"]),
         "add": InputSocket(name="add", type=Optional[int], has_default=True),
     }
     assert add_default_data["output_sockets"] == {
