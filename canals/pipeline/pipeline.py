@@ -289,10 +289,10 @@ class Pipeline:
         """
         # Make sure the receiving socket isn't already connected, unless it's variadic. Sending sockets can be
         # connected as many times as needed, so they don't need this check
-        if to_socket.sender and not to_socket.is_variadic:
+        if to_socket.senders and not to_socket.is_variadic:
             raise PipelineConnectError(
                 f"Cannot connect '{from_node}.{from_socket.name}' with '{to_node}.{to_socket.name}': "
-                f"{to_node}.{to_socket.name} is already connected to {to_socket.sender}.\n"
+                f"{to_node}.{to_socket.name} is already connected to {to_socket.senders}.\n"
             )
 
         # Create the connection
@@ -308,7 +308,9 @@ class Pipeline:
         )
 
         # Stores the name of the nodes that will send its output to this socket
-        to_socket.sender.append(from_node)
+        to_socket.senders.append(from_node)
+        # Stores the name of the nodes that will receive their input from this socket
+        from_socket.consumers.append(to_node)
 
     def get_component(self, name: str) -> Component:
         """

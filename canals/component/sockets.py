@@ -17,7 +17,7 @@ class InputSocket:
     type: Type
     is_optional: bool = field(init=False)
     is_variadic: bool = field(init=False)
-    sender: List[str] = field(default_factory=list)
+    senders: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.is_optional = get_origin(self.type) is Union and type(None) in get_args(self.type)
@@ -39,3 +39,4 @@ class InputSocket:
 class OutputSocket:
     name: str
     type: type
+    consumers: List[str] = field(default_factory=list)

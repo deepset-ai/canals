@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 from pathlib import Path
-from pprint import pprint
 
 from canals.pipeline import Pipeline
 from sample_components import StringJoiner, StringListJoiner, Hello, TextSplitter

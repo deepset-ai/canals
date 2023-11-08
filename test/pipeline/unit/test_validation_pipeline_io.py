@@ -17,7 +17,7 @@ def test_find_pipeline_input_no_input():
     pipe.connect("comp1", "comp2")
     pipe.connect("comp2", "comp1")
 
-    assert find_pipeline_inputs(pipe.graph) == {"comp1": [], "comp2": []}
+    assert find_pipeline_inputs(pipe.graph) == {}
 
 
 def test_find_pipeline_input_one_input():
@@ -28,7 +28,6 @@ def test_find_pipeline_input_one_input():
 
     assert find_pipeline_inputs(pipe.graph) == {
         "comp1": [InputSocket(name="value", type=int)],
-        "comp2": [],
     }
 
 
@@ -43,7 +42,6 @@ def test_find_pipeline_input_two_inputs_same_component():
             InputSocket(name="value", type=int),
             InputSocket(name="add", type=Optional[int]),
         ],
-        "comp2": [],
     }
 
 
@@ -61,7 +59,6 @@ def test_find_pipeline_input_some_inputs_different_components():
             InputSocket(name="add", type=Optional[int]),
         ],
         "comp2": [InputSocket(name="value", type=int)],
-        "comp3": [],
     }
 
 

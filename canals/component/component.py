@@ -72,6 +72,7 @@ import logging
 import inspect
 from typing import Protocol, runtime_checkable, Any
 from types import new_class
+from copy import deepcopy
 
 from canals.component.sockets import InputSocket, OutputSocket
 from canals.errors import ComponentError
@@ -124,7 +125,7 @@ class ComponentMeta(type):
         # If the __init__ called component.set_output_types(), __canals_output__ is already populated
         if not hasattr(instance, "__canals_output__"):
             # if the run method was decorated, it has a _output_types_cache field assigned
-            instance.__canals_output__ = getattr(instance.run, "_output_types_cache", {})
+            instance.__canals_output__ = deepcopy(getattr(instance.run, "_output_types_cache", {}))
 
         # If the __init__ called component.set_input_types(), __canals_input__ is already populated
         if not hasattr(instance, "__canals_input__"):

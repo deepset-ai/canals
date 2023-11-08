@@ -18,21 +18,22 @@ def find_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, List[InputSo
     Collect components that have disconnected input sockets. Note that this method returns *ALL* disconnected
     input sockets, including all such sockets with default values.
     """
-    return {
-        name: [socket for socket in data.get("input_sockets", {}).values() if not socket.sender]
+    inputs = {
+        name: [socket for socket in data.get("input_sockets", {}).values() if not socket.senders or socket.is_variadic]
         for name, data in graph.nodes(data=True)
     }
+    return {name: sockets for name, sockets in inputs.items() if sockets}
 
 
-def find_pipeline_outputs(graph) -> Dict[str, List[OutputSocket]]:
+def find_pipeline_outputs(graph: networkx.MultiDiGraph) -> Dict[str, List[OutputSocket]]:
     """
     Collect components that have disconnected output sockets. They define the pipeline output.
     """
-    return {
-        node: list(data.get("output_sockets", {}).values())
-        for node, data in graph.nodes(data=True)
-        if not graph.out_edges(node)
+    outputs = {
+        name: [socket for socket in data.get("output_sockets", {}).values() if not socket.consumers]
+        for name, data in graph.nodes(data=True)
     }
+    return {name: sockets for name, sockets in outputs.items() if sockets}
 
 
 def describe_pipeline_inputs(graph: networkx.MultiDiGraph):
