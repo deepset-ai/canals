@@ -70,7 +70,6 @@
 
 import logging
 import inspect
-import types
 from typing import Protocol, runtime_checkable, Any
 from types import new_class
 
@@ -138,21 +137,6 @@ class ComponentMeta(type):
                 )
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }
-
-        # Dynamically attach the inputs method to instance, not class
-        def inputs_method(self):
-            return {
-                name: {"type": socket.type, "is_optional": socket.is_optional}
-                for name, socket in self.__canals_input__.items()
-            }
-
-        instance._input_sockets = types.MethodType(inputs_method, instance)
-
-        # Dynamically attach the outputs method to instance, not class
-        def outputs_method(self):
-            return {name: {"type": socket.type} for name, socket in self.__canals_output__.items()}
-
-        instance._output_sockets = types.MethodType(outputs_method, instance)
 
         return instance
 
