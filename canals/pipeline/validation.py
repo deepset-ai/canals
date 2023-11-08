@@ -53,7 +53,7 @@ def _validate_input_sockets_are_connected(graph: networkx.MultiDiGraph, input_va
                 or not socket.name in inputs_for_node.keys()
                 or inputs_for_node.get(socket.name, None) is None
             )
-            if missing_input_value and not socket.is_optional and not socket.is_variadic:
+            if missing_input_value and not socket.has_default:
                 all_inputs = describe_pipeline_inputs_as_string(graph)
                 raise ValueError(f"Missing input: {node}.{socket.name}\n\n{all_inputs}")
 

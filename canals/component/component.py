@@ -135,6 +135,7 @@ class ComponentMeta(type):
                 param: InputSocket(
                     name=param,
                     type=run_signature.parameters[param].annotation,
+                    has_default=run_signature.parameters[param].default != inspect.Parameter.empty,
                 )
                 for param in list(run_signature.parameters)[1:]  # First is 'self' and it doesn't matter.
             }
@@ -180,7 +181,9 @@ class _Component:
                 return {"output_1": kwargs["value_1"], "output_2": ""}
         ```
         """
-        instance.__canals_input__ = {name: InputSocket(name=name, type=type_) for name, type_ in types.items()}
+        instance.__canals_input__ = {
+            name: InputSocket(name=name, type=type_, has_default=False) for name, type_ in types.items()
+        }
 
     def set_output_types(self, instance, **types):
         """

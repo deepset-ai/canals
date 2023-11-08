@@ -335,7 +335,7 @@ class Pipeline:
         Returns a dictionary with the input names and types that this pipeline accepts.
         """
         inputs = {
-            comp: {socket.name: {"type": socket.type, "is_optional": socket.is_optional} for socket in data}
+            comp: {socket.name: {"type": socket.type, "has_default": socket.has_default} for socket in data}
             for comp, data in find_pipeline_inputs(self.graph).items()
             if data
         }
@@ -588,10 +588,10 @@ class Pipeline:
         # All components inputs, whether they're connected, default or pipeline inputs
         input_sockets: Dict[str, InputSocket] = self.graph.nodes[name]["input_sockets"].keys()
         optional_input_sockets = {
-            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if socket.is_optional
+            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if not socket.has_default
         }
         mandatory_input_sockets = {
-            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if not socket.is_optional
+            socket.name for socket in self.graph.nodes[name]["input_sockets"].values() if socket.has_default
         }
 
         # Components that are in the inputs buffer and have no inputs assigned are considered skipped
