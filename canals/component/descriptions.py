@@ -1,7 +1,7 @@
 from typing import Dict, Any
 
 
-def component_inputs(component: Any) -> Dict[str, Dict[str, Any]]:
+def find_component_inputs(component: Any) -> Dict[str, Dict[str, Any]]:
     """
     Returns a mapping of input names to their expected types and optionality for a given component.
 
@@ -23,7 +23,7 @@ def component_inputs(component: Any) -> Dict[str, Dict[str, Any]]:
     }
 
 
-def component_outputs(component: Any) -> Dict[str, Dict[str, Any]]:
+def find_component_outputs(component: Any) -> Dict[str, Dict[str, Any]]:
     """
     Returns a mapping of component output names to their expected types.
 

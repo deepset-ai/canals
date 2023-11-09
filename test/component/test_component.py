@@ -4,7 +4,7 @@ from typing import Any, Optional
 import pytest
 
 from canals import component
-from canals.component.descriptions import component_inputs, component_outputs
+from canals.component.descriptions import find_component_inputs, find_component_outputs
 from canals.errors import ComponentError
 from canals.component import InputSocket, OutputSocket, Component
 
@@ -174,7 +174,7 @@ def test_inputs_method_no_inputs():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_inputs(comp) == {}
+    assert find_component_inputs(comp) == {}
 
 
 def test_inputs_method_one_input():
@@ -184,7 +184,7 @@ def test_inputs_method_one_input():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_inputs(comp) == {"value": {"is_optional": False, "type": int}}
+    assert find_component_inputs(comp) == {"value": {"is_optional": False, "type": int}}
 
 
 def test_inputs_method_multiple_inputs():
@@ -194,7 +194,7 @@ def test_inputs_method_multiple_inputs():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_inputs(comp) == {
+    assert find_component_inputs(comp) == {
         "value1": {"is_optional": False, "type": int},
         "value2": {"is_optional": False, "type": str},
     }
@@ -207,7 +207,7 @@ def test_inputs_method_multiple_inputs_optional():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_inputs(comp) == {
+    assert find_component_inputs(comp) == {
         "value1": {"is_optional": False, "type": int},
         "value2": {"is_optional": True, "type": typing.Optional[str]},
     }
@@ -223,7 +223,7 @@ def test_inputs_method_variadic_positional_args():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_inputs(comp) == {"value": {"is_optional": False, "type": typing.Any}}
+    assert find_component_inputs(comp) == {"value": {"is_optional": False, "type": typing.Any}}
 
 
 def test_inputs_method_variadic_keyword_positional_args():
@@ -236,7 +236,7 @@ def test_inputs_method_variadic_keyword_positional_args():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_inputs(comp) == {"value": {"is_optional": False, "type": typing.Any}}
+    assert find_component_inputs(comp) == {"value": {"is_optional": False, "type": typing.Any}}
 
 
 def test_inputs_dynamic_from_init():
@@ -249,7 +249,7 @@ def test_inputs_dynamic_from_init():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_inputs(comp) == {"value": {"is_optional": False, "type": int}}
+    assert find_component_inputs(comp) == {"value": {"is_optional": False, "type": int}}
 
 
 def test_outputs_method_no_outputs():
@@ -259,7 +259,7 @@ def test_outputs_method_no_outputs():
             return {}
 
     comp = MockComponent()
-    assert component_outputs(comp) == {}
+    assert find_component_outputs(comp) == {}
 
 
 def test_outputs_method_one_output():
@@ -270,7 +270,7 @@ def test_outputs_method_one_output():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_outputs(comp) == {"value": {"type": int}}
+    assert find_component_outputs(comp) == {"value": {"type": int}}
 
 
 def test_outputs_method_multiple_outputs():
@@ -281,7 +281,7 @@ def test_outputs_method_multiple_outputs():
             return {"value1": 1, "value2": "test"}
 
     comp = MockComponent()
-    assert component_outputs(comp) == {"value1": {"type": int}, "value2": {"type": str}}
+    assert find_component_outputs(comp) == {"value1": {"type": int}, "value2": {"type": str}}
 
 
 def test_outputs_dynamic_from_init():
@@ -294,4 +294,4 @@ def test_outputs_dynamic_from_init():
             return {"value": 1}
 
     comp = MockComponent()
-    assert component_outputs(comp) == {"value": {"type": int}}
+    assert find_component_outputs(comp) == {"value": {"type": int}}
