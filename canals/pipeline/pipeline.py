@@ -9,7 +9,7 @@ import datetime
 import logging
 from pathlib import Path
 from copy import deepcopy
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 import networkx
 
@@ -23,7 +23,7 @@ from canals.errors import (
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.validation import validate_pipeline_input, find_pipeline_inputs
-from canals.pipeline.connections import parse_connection, _find_unambiguous_connection
+from canals.pipeline.connections import Connection, parse_connect_string, _find_matching_sockets
 from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
@@ -61,6 +61,8 @@ class Pipeline:
         self.metadata = metadata or {}
         self.max_loops_allowed = max_loops_allowed
         self.graph = networkx.MultiDiGraph()
+        self._connections: List[Connection] = []
+        self._mandatory_connections: Dict[str, List[Connection]] = defaultdict(list)
         self.debug: Dict[int, Dict[str, Any]] = {}
         self.debug_path = Path(debug_path)
 
@@ -239,8 +241,8 @@ class Pipeline:
                 not present in the pipeline, or the connections don't match by type, and so on).
         """
         # Edges may be named explicitly by passing 'node_name.edge_name' to connect().
-        from_node, from_socket_name = parse_connection(connect_from)
-        to_node, to_socket_name = parse_connection(connect_to)
+        from_node, from_socket_name = parse_connect_string(connect_from)
+        to_node, to_socket_name = parse_connect_string(connect_to)
 
         # Get the nodes data.
         try:
@@ -275,7 +277,7 @@ class Pipeline:
         # Note that if there is more than one possible connection but two sockets match by name, they're paired.
         from_sockets = [from_socket] if from_socket_name else list(from_sockets.values())
         to_sockets = [to_socket] if to_socket_name else list(to_sockets.values())
-        from_socket, to_socket = _find_unambiguous_connection(
+        from_socket, to_socket = _find_matching_sockets(
             sender_node=from_node, sender_sockets=from_sockets, receiver_node=to_node, receiver_sockets=to_sockets
         )
 
@@ -311,6 +313,12 @@ class Pipeline:
         to_socket.senders.append(from_node)
         # Stores the name of the nodes that will receive their input from this socket
         from_socket.consumers.append(to_node)
+
+        # Stores the Connection object for easier access during run()
+        connection = Connection(from_node, from_socket, to_node, to_socket)
+        self._connections.append(connection)
+        if not connection.has_default():
+            self._mandatory_connections[to_node].append(connection)
 
     def get_component(self, name: str) -> Component:
         """
