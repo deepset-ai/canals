@@ -63,8 +63,8 @@ class Pipeline:
         self.graph = networkx.MultiDiGraph()
         self._connections: List[Connection] = []
         self._mandatory_connections: Dict[str, List[Connection]] = defaultdict(list)
-        self._debug: Dict[int, Dict[str, Any]] = {}
-        self._debug_path = Path(debug_path)
+        self.debug: Dict[int, Dict[str, Any]] = {}
+        self.debug_path = Path(debug_path)
 
     def __eq__(self, other) -> bool:
         """
@@ -398,7 +398,7 @@ class Pipeline:
         data = validate_pipeline_input(self.graph, input_values=data)
         logger.info("Pipeline execution started.")
 
-        self._debug = {}
+        self.debug = {}
         if debug:
             logger.info("Debug mode ON.")
             os.makedirs("debug", exist_ok=True)
@@ -466,10 +466,10 @@ class Pipeline:
             self._record_pipeline_step(
                 step + 1, components_queue, mandatory_values_buffer, optional_values_buffer, pipeline_output
             )
-            os.makedirs(self._debug_path, exist_ok=True)
-            with open(self._debug_path / "data.json", "w", encoding="utf-8") as datafile:
-                json.dump(self._debug, datafile, indent=4, default=str)
-            pipeline_output["_debug"] = self._debug  # type: ignore
+            os.makedirs(self.debug_path, exist_ok=True)
+            with open(self.debug_path / "data.json", "w", encoding="utf-8") as datafile:
+                json.dump(self.debug, datafile, indent=4, default=str)
+            pipeline_output["_debug"] = self.debug  # type: ignore
 
         logger.info("Pipeline executed successfully.")
         return dict(pipeline_output)
@@ -481,7 +481,7 @@ class Pipeline:
         Stores a snapshot of this step into the self.debug dictionary of the pipeline.
         """
         mermaid_graph = _convert_for_debug(deepcopy(self.graph))
-        self._debug[step] = {
+        self.debug[step] = {
             "time": datetime.datetime.now(),
             "components_queue": components_queue,
             "mandatory_values_buffer": mandatory_values_buffer,
