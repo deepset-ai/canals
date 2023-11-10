@@ -437,26 +437,34 @@ class Pipeline:
                     step, components_queue, mandatory_values_buffer, optional_values_buffer, pipeline_output
                 )
 
+            # Select the next component to run
             component_name = components_queue.pop(0)
             logger.debug("> Queue at step %s: %s %s", step, component_name, components_queue)
+
+            # Make sure it haven't run too many times
             self._check_max_loops(component_name)
 
             # **** RUN THE NODE ****
             if not self._ready_to_run(component_name, mandatory_values_buffer, components_queue):
                 continue
 
+            # Collect the mandatory and optional inputs
             inputs = {
                 **self._extract_inputs_from_buffer(component_name, mandatory_values_buffer),
                 **self._extract_inputs_from_buffer(component_name, optional_values_buffer),
             }
+            # Run the node
             outputs = self._run_component(name=component_name, inputs=dict(inputs))
 
             # **** PROCESS THE OUTPUT ****
             for socket_name, value in outputs.items():
+                # Find out on which connections to send each output
                 targets = self._collect_targets(component_name, socket_name)
                 if not targets:
+                    # If there's no destination it goes to the Pipeline's output
                     pipeline_output[component_name][socket_name] = value
                 else:
+                    # Add the output value to all the buffers and the component's queue
                     for target in targets:
                         self._add_value_to_buffers(
                             value, target, components_queue, mandatory_values_buffer, optional_values_buffer
@@ -516,6 +524,18 @@ class Pipeline:
     ):
         """
         Given a value and the connection it is being sent on, it updates the buffers and the components queue.
+        These data structures are mutated in-place.
+
+        Args:
+            value: the value to send.
+            connection: the connection on which to send the value.
+            components_queue: the components queue. Components get added here if they received a value on a connection
+                with no default values.
+            mandatory_values_buffer: the mandatory values buffer.
+            optional_values_buffer: the optional values buffer.
+
+        Returns:
+            None
         """
         if not connection.has_default():
             mandatory_values_buffer[connection] = value
@@ -529,11 +549,22 @@ class Pipeline:
     ) -> bool:
         """
         Returns True if a component is ready to run, False otherwise.
+        Components are ready to run when all the incoming connections without a default value have received a value.
+
+        Args:
+            component_name: the name of the component to check.
+            mandatory_values_buffer: the mandatory values buffer.
+            components_queue: the components queue.
+
+        Returns:
+            True if the component is ready to run, False otherwise.
         """
         received_connections = set(
             conn for conn in mandatory_values_buffer.keys() if conn.consumer_component == component_name
         )
         expected_connections = set(self._mandatory_connections[component_name])
+
+        # Check whether all the mandatory values have been received
         if expected_connections.issubset(received_connections):
             logger.debug("Component '%s' is ready to run. All mandatory values were received.", component_name)
             return True
@@ -547,15 +578,16 @@ class Pipeline:
                 for component_to_run in components_queue
             ):
                 connections_to_wait.append(missing_conn)
+
         if not connections_to_wait:
-            # Just run the component: missing sockets will never arrive
+            # if there are no more connections to wait for, just run the component: the missing values will never arrive
             logger.debug(
                 "Component '%s' is ready to run. A variadic input parameter received all the expected values.",
                 component_name,
             )
             return True
 
-        # Wait for the values
+        # Otherwise, wait for the values
         logger.debug(
             "Component '%s' is not ready to run, some values are still missing: %s",
             component_name,
@@ -566,7 +598,14 @@ class Pipeline:
 
     def _extract_inputs_from_buffer(self, component_name: str, buffer: Dict[Connection, Any]) -> Dict[str, Any]:
         """
-        Extract a component's input values from one of the value buffers.
+        Extract a component's input values from one of the value buffers. Note that the buffer is modified in-place.
+
+        Args:
+            component_name: the name of the component.
+            buffer: the buffer to extract the values from.
+
+        Returns:
+            A dictionary with the inputs for this component.
         """
         inputs = defaultdict(list)
         connections: List[Connection] = []
@@ -587,6 +626,13 @@ class Pipeline:
     def _run_component(self, name: str, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Once we're confident this component is ready to run, run it and collect the output.
+
+        Args:
+            name: the name of the component to run.
+            inputs: the inputs to give to the component.
+
+        Returns:
+            The outputs of the component.
         """
         self.graph.nodes[name]["visits"] += 1
         instance = self.graph.nodes[name]["instance"]
@@ -618,6 +664,13 @@ class Pipeline:
         """
         Given and component and an output socket names, returns a list of Connections
         where these are the producers. Used to route output.
+
+        Args:
+            component_name: the name of the component.
+            socket_name: the name of the output socket.
+
+        Returns:
+            A list of connections.
         """
         return [
             connection
