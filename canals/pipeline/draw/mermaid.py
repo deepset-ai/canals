@@ -60,19 +60,19 @@ def _to_mermaid_text(graph: networkx.MultiDiGraph) -> str:
     Converts a Networkx graph into Mermaid syntax. The output of this function can be used in the documentation
     with `mermaid` codeblocks and it will be automatically rendered.
     """
-    sockets = {
+    opt_sockets = {
         comp: "".join(
             [
                 f"<li>{name} ({_type_name(socket.type)})</li>"
                 for name, socket in data.get("input_sockets", {}).items()
-                if socket.is_optional and not socket.sender
+                if (socket.has_default and not socket.sender) or socket.is_variadic
             ]
         )
         for comp, data in graph.nodes(data=True)
     }
     optional_inputs = {
         comp: f"<br><br>Optional inputs:<ul style='text-align:left;'>{sockets}</ul>" if sockets else ""
-        for comp, sockets in sockets.items()
+        for comp, sockets in opt_sockets.items()
     }
 
     states = {
