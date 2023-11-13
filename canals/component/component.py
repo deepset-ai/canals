@@ -181,9 +181,7 @@ class _Component:
                 return {"output_1": kwargs["value_1"], "output_2": ""}
         ```
         """
-        instance.__canals_input__ = {
-            name: InputSocket(name=name, type=type_, has_default=False) for name, type_ in types.items()
-        }
+        instance.__canals_input__ = {name: InputSocket(name=name, type=type_) for name, type_ in types.items()}
 
     def set_output_types(self, instance, **types):
         """
