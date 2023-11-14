@@ -286,8 +286,13 @@ class Pipeline:
             sender, sender_socket_candidates, receiver, receiver_socket_candidates
         )
 
-        # Connect the components on these sockets
-        if not connection.sender_socket or not connection.receiver_socket:
+        # Connection must be valid on both sender/receiver sides
+        if (
+            not connection.sender_socket
+            or not connection.receiver_socket
+            or not connection.sender
+            or not connection.receiver
+        ):
             raise PipelineConnectError("Connection must have both sender and receiver: {connection}")
 
         # Create the connection
