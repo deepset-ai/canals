@@ -23,7 +23,8 @@ from canals.errors import (
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.validation import validate_pipeline_input, find_pipeline_inputs
-from canals.pipeline.connections import Connection, parse_connect_string, _find_matching_sockets
+from canals.pipeline.connections import parse_connect_string, _find_matching_sockets
+from canals.component.connection import Connection
 from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
@@ -315,7 +316,7 @@ class Pipeline:
         # Stores the Connection object for easier access during run()
         connection = Connection(from_node, from_socket, to_node, to_socket)
         self._connections.append(connection)
-        if connection.is_mandatory():
+        if connection.is_mandatory:
             self._mandatory_connections[to_node].append(connection)
 
     def get_component(self, name: str) -> Component:
@@ -515,10 +516,10 @@ class Pipeline:
         """
         Given a value and the connection it is being sent on, it updates the buffers and the components queue.
         """
-        if connection.is_mandatory():
+        if connection.is_mandatory:
             mandatory_values_buffer[connection] = value
-            if connection.consumer_component and connection.consumer_component not in components_queue:
-                components_queue.append(connection.consumer_component)
+            if connection.receiver and connection.receiver not in components_queue:
+                components_queue.append(connection.receiver)
         else:
             optional_values_buffer[connection] = value
 
@@ -528,9 +529,7 @@ class Pipeline:
         """
         Returns True if a component is ready to run, False otherwise.
         """
-        received_connections = set(
-            conn for conn in mandatory_values_buffer.keys() if conn.consumer_component == component_name
-        )
+        received_connections = set(conn for conn in mandatory_values_buffer.keys() if conn.receiver == component_name)
         expected_connections = set(self._mandatory_connections[component_name])
         if expected_connections.issubset(received_connections):
             logger.debug("Component '%s' is ready to run. All mandatory values were received.", component_name)
@@ -541,7 +540,7 @@ class Pipeline:
         connections_to_wait = []
         for missing_conn in missing_connections:
             if any(
-                networkx.has_path(self.graph, component_to_run, missing_conn.producer_component)
+                networkx.has_path(self.graph, component_to_run, missing_conn.sender)
                 for component_to_run in components_queue
             ):
                 connections_to_wait.append(missing_conn)
@@ -570,16 +569,16 @@ class Pipeline:
         connections: List[Connection] = []
 
         for connection in buffer.keys():
-            if connection.consumer_component == component_name:
+            if connection.receiver == component_name:
                 connections.append(connection)
 
         for key in connections:
             value = buffer.pop(key)
-            if key.consumer_socket:
-                if key.consumer_socket.is_variadic:
-                    inputs[key.consumer_socket.name].append(value)
+            if key.receiver_socket:
+                if key.receiver_socket.is_variadic:
+                    inputs[key.receiver_socket.name].append(value)
                 else:
-                    inputs[key.consumer_socket.name] = value
+                    inputs[key.receiver_socket.name] = value
         return inputs
 
     def _run_component(self, name: str, inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -620,7 +619,7 @@ class Pipeline:
         return [
             connection
             for connection in self._connections
-            if connection.producer_component == component_name
-            and connection.producer_socket
-            and connection.producer_socket.name == socket_name
+            if connection.sender == component_name
+            and connection.sender_socket
+            and connection.sender_socket.name == socket_name
         ]
