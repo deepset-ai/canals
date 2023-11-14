@@ -11,7 +11,7 @@ import pytest
 from canals import Pipeline
 from canals.errors import PipelineConnectError
 from canals.testing import factory
-from canals.pipeline.connections import parse_connect_string
+from canals.component.connection import parse_connect_string
 from sample_components import AddFixedValue
 
 

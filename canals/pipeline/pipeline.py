@@ -23,8 +23,7 @@ from canals.errors import (
 )
 from canals.pipeline.draw import _draw, _convert_for_debug, RenderingEngines
 from canals.pipeline.validation import validate_pipeline_input, find_pipeline_inputs
-from canals.pipeline.connections import parse_connect_string, _find_matching_sockets
-from canals.component.connection import Connection
+from canals.component.connection import Connection, parse_connect_string
 from canals.type_utils import _type_name
 from canals.serialization import component_to_dict, component_from_dict
 
@@ -278,46 +277,34 @@ class Pipeline:
         # Note that if there is more than one possible connection but two sockets match by name, they're paired.
         from_sockets = [from_socket] if from_socket_name else list(from_sockets.values())
         to_sockets = [to_socket] if to_socket_name else list(to_sockets.values())
-        from_socket, to_socket = _find_matching_sockets(
-            sender_node=from_node, sender_sockets=from_sockets, receiver_node=to_node, receiver_sockets=to_sockets
-        )
+        connection = Connection.from_list_of_sockets(from_node, from_sockets, to_node, to_sockets)
 
         # Connect the components on these sockets
-        self._direct_connect(from_node=from_node, from_socket=from_socket, to_node=to_node, to_socket=to_socket)
-
-    def _direct_connect(self, from_node: str, from_socket: OutputSocket, to_node: str, to_socket: InputSocket) -> None:
-        """
-        Directly connect socket to socket. This method does not type-check the connections: use 'Pipeline.connect()'
-        instead (which uses 'find_unambiguous_connection()' to validate types).
-        """
-        # Make sure the receiving socket isn't already connected, unless it's variadic. Sending sockets can be
-        # connected as many times as needed, so they don't need this check
-        if to_socket.senders and not to_socket.is_variadic:
-            raise PipelineConnectError(
-                f"Cannot connect '{from_node}.{from_socket.name}' with '{to_node}.{to_socket.name}': "
-                f"{to_node}.{to_socket.name} is already connected to {to_socket.senders}.\n"
-            )
+        if not connection.sender_socket or not connection.receiver_socket:
+            raise PipelineConnectError("Connection must have both sender and receiver: {connection}")
 
         # Create the connection
-        logger.debug("Connecting '%s.%s' to '%s.%s'", from_node, from_socket.name, to_node, to_socket.name)
-        edge_key = f"{from_socket.name}/{to_socket.name}"
-        self.graph.add_edge(
-            from_node,
-            to_node,
-            key=edge_key,
-            conn_type=_type_name(from_socket.type),
-            from_socket=from_socket,
-            to_socket=to_socket,
+        logger.debug(
+            "Connecting '%s.%s' to '%s.%s'",
+            connection.sender,
+            connection.sender_socket.name,
+            connection.receiver,
+            connection.receiver_socket.name,
         )
-        # Stores the name of the nodes that will send its output to this socket
-        from_socket.receivers.append(to_node)
-        to_socket.senders.append(from_node)
 
-        # Stores the Connection object for easier access during run()
-        connection = Connection(from_node, from_socket, to_node, to_socket)
+        edge_key = f"{connection.sender_socket.name}/{connection.receiver_socket.name}"
+        self.graph.add_edge(
+            connection.sender,
+            connection.receiver,
+            key=edge_key,
+            conn_type=_type_name(connection.sender_socket.type),
+            from_socket=connection.sender_socket,
+            to_socket=connection.receiver_socket,
+        )
+
         self._connections.append(connection)
         if connection.is_mandatory:
-            self._mandatory_connections[to_node].append(connection)
+            self._mandatory_connections[connection.receiver].append(connection)
 
     def get_component(self, name: str) -> Component:
         """
