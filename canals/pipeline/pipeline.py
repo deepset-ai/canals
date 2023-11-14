@@ -11,7 +11,7 @@ from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
 
-import networkx
+import networkx  # type:ignore
 
 from canals.component import component, Component, InputSocket, OutputSocket
 from canals.errors import (
@@ -92,7 +92,7 @@ class Pipeline:
         This is meant to be an intermediate representation but it can be also used to save a pipeline to file.
         """
         components = {}
-        for name, instance in self.graph.nodes(data="instance"):
+        for name, instance in self.graph.nodes(data="instance"):  # type:ignore
             components[name] = component_to_dict(instance)
 
         connections = []
@@ -406,7 +406,7 @@ class Pipeline:
 
         self.warm_up()
 
-        # Prepare the inputs buffer and components queue
+        # Prepare the inputs buffers and components queue
         components_queue: List[str] = []
         mandatory_values_buffer: Dict[Connection, Any] = {}
         optional_values_buffer: Dict[Connection, Any] = {}
@@ -523,14 +523,14 @@ class Pipeline:
         """
         Returns True if a component is ready to run, False otherwise.
         """
-        received_connections = set(conn for conn in mandatory_values_buffer.keys() if conn.receiver == component_name)
+        connections_with_value = set(conn for conn in mandatory_values_buffer.keys() if conn.receiver == component_name)
         expected_connections = set(self._mandatory_connections[component_name])
-        if expected_connections.issubset(received_connections):
+        if expected_connections.issubset(connections_with_value):
             logger.debug("Component '%s' is ready to run. All mandatory values were received.", component_name)
             return True
 
-        # Check whether the missing values are still being computed
-        missing_connections: Set[Connection] = expected_connections - received_connections
+        # Collect the missing values still being computed we need to wait for
+        missing_connections: Set[Connection] = expected_connections - connections_with_value
         connections_to_wait = []
         for missing_conn in missing_connections:
             if any(
@@ -538,20 +538,22 @@ class Pipeline:
                 for component_to_run in components_queue
             ):
                 connections_to_wait.append(missing_conn)
+
         if not connections_to_wait:
-            # Just run the component: missing sockets will never arrive
+            # None of the missing values are needed to visit this part of the graph: we can run the component
             logger.debug(
                 "Component '%s' is ready to run. A variadic input parameter received all the expected values.",
                 component_name,
             )
             return True
 
-        # Wait for the values
+        # Component can't run, waiting for the values needed by `connections_to_wait`
         logger.debug(
             "Component '%s' is not ready to run, some values are still missing: %s",
             component_name,
             connections_to_wait,
         )
+        # Put the component back in the queue
         components_queue.append(component_name)
         return False
 
@@ -607,8 +609,8 @@ class Pipeline:
 
     def _collect_targets(self, component_name: str, socket_name: str) -> List[Connection]:
         """
-        Given and component and an output socket names, returns a list of Connections
-        where these are the producers. Used to route output.
+        Given a component and an output socket name, return a list of Connections
+        for which they represent the sender. Used to route output.
         """
         return [
             connection
