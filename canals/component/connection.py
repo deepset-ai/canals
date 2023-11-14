@@ -1,35 +1,31 @@
 import itertools
 from typing import Optional, List, Tuple
+from dataclasses import dataclass
 
 from canals.component.sockets import InputSocket, OutputSocket
 from canals.type_utils import _type_name, _types_are_compatible
 from canals.errors import PipelineConnectError
 
 
+@dataclass
 class Connection:
-    def __init__(
-        self,
-        sender: Optional[str],
-        sender_socket: Optional[OutputSocket],
-        receiver: Optional[str],
-        receiver_socket: Optional[InputSocket],
-    ):
-        if sender and sender_socket and receiver and receiver_socket:
+    sender: Optional[str]
+    sender_socket: Optional[OutputSocket]
+    receiver: Optional[str]
+    receiver_socket: Optional[InputSocket]
+
+    def __post_init__(self):
+        if self.sender and self.sender_socket and self.receiver and self.receiver_socket:
             # Make sure the receiving socket isn't already connected, unless it's variadic. Sending sockets can be
             # connected as many times as needed, so they don't need this check
-            if receiver_socket.senders and not receiver_socket.is_variadic:
+            if self.receiver_socket.senders and not self.receiver_socket.is_variadic:
                 raise PipelineConnectError(
-                    f"Cannot connect '{sender}.{sender_socket.name}' with '{receiver}.{receiver_socket.name}': "
-                    f"{receiver}.{receiver_socket.name} is already connected to {receiver_socket.senders}.\n"
+                    f"Cannot connect '{self.sender}.{self.sender_socket.name}' with '{self.receiver}.{self.receiver_socket.name}': "
+                    f"{self.receiver}.{self.receiver_socket.name} is already connected to {self.receiver_socket.senders}.\n"
                 )
 
-            sender_socket.receivers.append(receiver)
-            receiver_socket.senders.append(sender)
-
-        self._sender = sender
-        self._sender_socket = sender_socket
-        self._receiver = receiver
-        self._receiver_socket = receiver_socket
+            self.sender_socket.receivers.append(self.receiver)
+            self.receiver_socket.senders.append(self.sender)
 
     def __repr__(self):
         if self.sender and self.sender_socket:
@@ -44,6 +40,21 @@ class Connection:
 
         return f"{sender_repr} --> {receiver_repr}"
 
+    def __hash__(self):
+        """
+        Connection is used as a dictionary key in Pipeline, it must be hashable
+        """
+        return hash(
+            "-".join(
+                [
+                    self.sender if self.sender else "input",
+                    self.sender_socket.name if self.sender_socket else "",
+                    self.receiver if self.receiver else "output",
+                    self.receiver_socket.name if self.receiver_socket else "",
+                ]
+            )
+        )
+
     @property
     def is_mandatory(self) -> bool:
         """
@@ -52,22 +63,6 @@ class Connection:
         if self.receiver_socket:
             return self.receiver_socket.is_mandatory
         return False
-
-    @property
-    def sender(self) -> str:
-        return self._sender or "n/a"
-
-    @property
-    def sender_socket(self) -> Optional[OutputSocket]:
-        return self._sender_socket
-
-    @property
-    def receiver(self) -> str:
-        return self._receiver or "n/a"
-
-    @property
-    def receiver_socket(self) -> Optional[InputSocket]:
-        return self._receiver_socket
 
     @staticmethod
     def from_list_of_sockets(

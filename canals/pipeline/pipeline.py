@@ -299,11 +299,10 @@ class Pipeline:
             connection.receiver_socket.name,
         )
 
-        edge_key = f"{connection.sender_socket.name}/{connection.receiver_socket.name}"
         self.graph.add_edge(
             connection.sender,
             connection.receiver,
-            key=edge_key,
+            key=f"{connection.sender_socket.name}/{connection.receiver_socket.name}",
             conn_type=_type_name(connection.sender_socket.type),
             from_socket=connection.sender_socket,
             to_socket=connection.receiver_socket,
