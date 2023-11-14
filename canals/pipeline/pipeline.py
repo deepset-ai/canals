@@ -310,7 +310,7 @@ class Pipeline:
             to_socket=to_socket,
         )
         # Stores the name of the nodes that will send its output to this socket
-        from_socket.consumers.append(to_node)
+        from_socket.receivers.append(to_node)
         to_socket.senders.append(from_node)
 
         # Stores the Connection object for easier access during run()

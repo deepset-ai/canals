@@ -29,7 +29,7 @@ def find_pipeline_outputs(graph: networkx.MultiDiGraph) -> Dict[str, List[Output
     Collect components that have disconnected output sockets. They define the pipeline output.
     """
     return {
-        name: [socket for socket in data.get("output_sockets", {}).values() if not socket.consumers]
+        name: [socket for socket in data.get("output_sockets", {}).values() if not socket.receivers]
         for name, data in graph.nodes(data=True)
     }
 

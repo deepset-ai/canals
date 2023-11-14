@@ -38,4 +38,4 @@ class InputSocket:
 class OutputSocket:
     name: str
     type: type
-    consumers: List[str] = field(default_factory=list)
+    receivers: List[str] = field(default_factory=list)
