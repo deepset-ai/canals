@@ -241,43 +241,50 @@ class Pipeline:
                 not present in the pipeline, or the connections don't match by type, and so on).
         """
         # Edges may be named explicitly by passing 'node_name.edge_name' to connect().
-        from_node, from_socket_name = parse_connect_string(connect_from)
-        to_node, to_socket_name = parse_connect_string(connect_to)
+        sender, sender_socket_name = parse_connect_string(connect_from)
+        receiver, receiver_socket_name = parse_connect_string(connect_to)
 
         # Get the nodes data.
         try:
-            from_sockets = self.graph.nodes[from_node]["output_sockets"]
+            from_sockets = self.graph.nodes[sender]["output_sockets"]
         except KeyError as exc:
-            raise ValueError(f"Component named {from_node} not found in the pipeline.") from exc
-
+            raise ValueError(f"Component named {sender} not found in the pipeline.") from exc
         try:
-            to_sockets = self.graph.nodes[to_node]["input_sockets"]
+            to_sockets = self.graph.nodes[receiver]["input_sockets"]
         except KeyError as exc:
-            raise ValueError(f"Component named {to_node} not found in the pipeline.") from exc
+            raise ValueError(f"Component named {receiver} not found in the pipeline.") from exc
 
         # If the name of either socket is given, get the socket
-        if from_socket_name:
-            from_socket = from_sockets.get(from_socket_name, None)
-            if not from_socket:
+        sender_socket: Optional[OutputSocket] = None
+        if sender_socket_name:
+            sender_socket = from_sockets.get(sender_socket_name)
+            if not sender_socket:
                 raise PipelineConnectError(
-                    f"'{from_node}.{from_socket_name} does not exist. "
-                    f"Output connections of {from_node} are: "
+                    f"'{connect_from} does not exist. "
+                    f"Output connections of {sender} are: "
                     + ", ".join([f"{name} (type {_type_name(socket.type)})" for name, socket in from_sockets.items()])
                 )
-        if to_socket_name:
-            to_socket = to_sockets.get(to_socket_name, None)
-            if not to_socket:
+
+        receiver_socket: Optional[InputSocket] = None
+        if receiver_socket_name:
+            receiver_socket = to_sockets.get(receiver_socket_name)
+            if not receiver_socket:
                 raise PipelineConnectError(
-                    f"'{to_node}.{to_socket_name} does not exist. "
-                    f"Input connections of {to_node} are: "
+                    f"'{connect_to} does not exist. "
+                    f"Input connections of {receiver} are: "
                     + ", ".join([f"{name} (type {_type_name(socket.type)})" for name, socket in to_sockets.items()])
                 )
 
-        # Look for an unambiguous connection among the possible ones.
+        # Look for a matching connection among the possible ones.
         # Note that if there is more than one possible connection but two sockets match by name, they're paired.
-        from_sockets = [from_socket] if from_socket_name else list(from_sockets.values())
-        to_sockets = [to_socket] if to_socket_name else list(to_sockets.values())
-        connection = Connection.from_list_of_sockets(from_node, from_sockets, to_node, to_sockets)
+        sender_socket_candidates: List[OutputSocket] = [sender_socket] if sender_socket else list(from_sockets.values())
+        receiver_socket_candidates: List[InputSocket] = (
+            [receiver_socket] if receiver_socket else list(to_sockets.values())
+        )
+
+        connection = Connection.from_list_of_sockets(
+            sender, sender_socket_candidates, receiver, receiver_socket_candidates
+        )
 
         # Connect the components on these sockets
         if not connection.sender_socket or not connection.receiver_socket:
