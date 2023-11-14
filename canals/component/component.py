@@ -122,9 +122,15 @@ class ComponentMeta(type):
         # Before returning, we have the chance to modify the newly created
         # Component instance, so we take the chance and set up the I/O sockets
 
-        # If the __init__ called component.set_output_types(), __canals_output__ is already populated
+        # If `component.set_output_types()` was called in the component constructor,
+        # `__canals_output__` is already populated, no need to do anything.
         if not hasattr(instance, "__canals_output__"):
-            # if the run method was decorated, it has a _output_types_cache field assigned
+            # If that's not the case, we need to populate `__canals_output__`
+            #
+            # If the `run` method was decorated, it has a `_output_types_cache` field assigned
+            # that stores the output specification.
+            # We deepcopy the content of the cache to transfer ownership from the class method
+            # to the actual instance, so that different instances of the same class won't share this data.
             instance.__canals_output__ = deepcopy(getattr(instance.run, "_output_types_cache", {}))
 
         # If the __init__ called component.set_input_types(), __canals_input__ is already populated
