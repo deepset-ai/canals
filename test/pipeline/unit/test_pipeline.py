@@ -28,7 +28,9 @@ def test_max_loops():
 
 
 def test_run_with_component_that_does_not_return_dict():
-    BrokenComponent = component_class("BrokenComponent", input_types={"a": int}, output_types={"b": int}, output=1)
+    BrokenComponent = component_class(
+        "BrokenComponent", input_types={"a": int}, output_types={"b": int}, output=1  # type:ignore
+    )
 
     pipe = Pipeline(max_loops_allowed=10)
     pipe.add_component("comp", BrokenComponent())
