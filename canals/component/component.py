@@ -134,10 +134,22 @@ class ComponentMeta(type):
             instance.__canals_output__ = deepcopy(getattr(instance.run, "_output_types_cache", {}))
 
         # If the __init__ called component.set_input_types(), __canals_input__ is already populated
-        if not hasattr(instance, "__canals_input__"):
-            run_signature = inspect.signature(getattr(cls, "run"))
+        # and we only need to check for defaults
+        run_signature = inspect.signature(getattr(cls, "run"))
+        if hasattr(instance, "__canals_input__"):
+            for param in list(run_signature.parameters)[1:]:  # First is 'self' and it doesn't matter.
+                if run_signature.parameters[param].default != inspect.Parameter.empty:
+                    if param not in instance.__canals_input__:
+                        instance.__canals_input__[param] = InputSocket(
+                            name=param,
+                            type=run_signature.parameters[param].annotation,
+                            is_mandatory=run_signature.parameters[param].default == inspect.Parameter.empty,
+                        )
+                    else:
+                        instance.__canals_input__[param].is_mandatory = False
+        else:
+            # Otherwise, create the input sockets
             instance.__canals_input__ = {
-                # Create the input sockets
                 param: InputSocket(
                     name=param,
                     type=run_signature.parameters[param].annotation,
