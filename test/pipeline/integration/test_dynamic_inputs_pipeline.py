@@ -1,8 +1,9 @@
+from pathlib import Path
 from canals import Pipeline
 from sample_components import FString, Hello, TextSplitter
 
 
-def test_pipeline():
+def test_pipeline(tmp_path):
     pipeline = Pipeline()
     pipeline.add_component("hello", Hello())
     pipeline.add_component("fstring", FString(template="This is the greeting: {greeting}!", variables=["greeting"]))
@@ -10,7 +11,7 @@ def test_pipeline():
     pipeline.connect("hello.output", "fstring.greeting")
     pipeline.connect("fstring.string", "splitter.sentence")
 
-    pipeline.draw("dynamic_inputs_pipeline.png")
+    pipeline.draw(tmp_path / "dynamic_inputs_pipeline.png")
 
     output = pipeline.run({"hello": {"word": "Alice"}})
     assert output == {"splitter": {"output": ["This", "is", "the", "greeting:", "Hello,", "Alice!!"]}}
@@ -20,4 +21,4 @@ def test_pipeline():
 
 
 if __name__ == "__main__":
-    test_pipeline()
+    test_pipeline(Path(__file__).parent)

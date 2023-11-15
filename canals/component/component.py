@@ -139,11 +139,12 @@ class ComponentMeta(type):
             instance.__canals_input__ = {}
         run_signature = inspect.signature(getattr(cls, "run"))
         for param in list(run_signature.parameters)[1:]:  # First is 'self' and it doesn't matter.
-            instance.__canals_input__[param] = InputSocket(
-                name=param,
-                type=run_signature.parameters[param].annotation,
-                is_mandatory=run_signature.parameters[param].default == inspect.Parameter.empty,
-            )
+            if run_signature.parameters[param].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:  # ignore kwargs
+                instance.__canals_input__[param] = InputSocket(
+                    name=param,
+                    type=run_signature.parameters[param].annotation,
+                    is_mandatory=run_signature.parameters[param].default == inspect.Parameter.empty,
+                )
         return instance
 
 
