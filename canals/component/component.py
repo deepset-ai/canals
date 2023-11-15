@@ -185,6 +185,28 @@ class _Component:
             def run(self, **kwargs):
                 return {"output_1": kwargs["value_1"], "output_2": ""}
         ```
+
+        Note that if the `run()` method also specifies some parameters, those will take precedence.
+
+        For example:
+
+        ```python
+        @component
+        class MyComponent:
+
+            def __init__(self, value: int):
+                component.set_input_types(value_1=str, value_2=str)
+                ...
+
+            @component.output_types(output_1=int, output_2=str)
+            def run(self, value_0: str, value_1: Optional[str] = None, **kwargs):
+                return {"output_1": kwargs["value_1"], "output_2": ""}
+        ```
+
+        would add a mandatory `value_0` parameters, make the `value_1`
+        parameter optional with a default None, and keep the `value_2`
+        parameter mandatory as specified in `set_input_types`.
+
         """
         instance.__canals_input__ = {name: InputSocket(name=name, type=type_) for name, type_ in types.items()}
 
