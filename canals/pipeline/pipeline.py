@@ -7,6 +7,7 @@ import os
 import json
 import datetime
 import logging
+import importlib
 from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
@@ -152,8 +153,18 @@ class Pipeline:
             else:
                 if "type" not in component_data:
                     raise PipelineError(f"Missing 'type' in component '{name}'")
+
                 if component_data["type"] not in component.registry:
-                    raise PipelineError(f"Component '{component_data['type']}' not imported.")
+                    try:
+                        # Import the module first...
+                        module, _ = component_data["type"].rsplit(".", 1)
+                        importlib.import_module(module)
+                        # ...then try again
+                        if component_data["type"] not in component.registry:
+                            raise PipelineError()
+                    except (ImportError, PipelineError) as e:
+                        raise PipelineError(f"Component '{component_data['type']}' not imported.") from e
+
                 # Create a new one
                 component_class = component.registry[component_data["type"]]
                 instance = component_from_dict(component_class, component_data)
