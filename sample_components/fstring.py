@@ -15,7 +15,7 @@ class FString:
     def __init__(self, template: str, variables: Optional[List[str]] = None):
         self.template = template
         self.variables = variables or []
-        if any(variable == "template" for variable in self.variables):
+        if "template" in self.variables:
             raise ValueError("The variable name 'template' is reserved and cannot be used.")
         component.set_input_types(self, **{variable: Any for variable in self.variables})
 
