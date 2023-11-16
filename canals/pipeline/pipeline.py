@@ -158,6 +158,7 @@ class Pipeline:
                     try:
                         # Import the module first...
                         module, _ = component_data["type"].rsplit(".", 1)
+                        logger.debug("Trying to import %s", module)
                         importlib.import_module(module)
                         # ...then try again
                         if component_data["type"] not in component.registry:
