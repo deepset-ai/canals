@@ -162,7 +162,10 @@ class Pipeline:
                         importlib.import_module(module)
                         # ...then try again
                         if component_data["type"] not in component.registry:
-                            raise PipelineError()
+                            raise PipelineError(
+                                f"Successfully imported module {module} but can't find it in the component registry."
+                                "This is unexpected and most likely a bug."
+                            )
                     except (ImportError, PipelineError) as e:
                         raise PipelineError(f"Component '{component_data['type']}' not imported.") from e
 
