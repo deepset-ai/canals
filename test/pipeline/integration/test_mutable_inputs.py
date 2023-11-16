@@ -24,4 +24,4 @@ def test_mutable_inputs():
     mylist = ["foo", "bar"]
 
     result = pipe.run(data={"mangler1": {"input_list": mylist}, "mangler2": {"input_list": mylist}})
-    assert result["concat1"]["output"] == result["concat1"]["output"] == ["foo", "bar", "extra_item"]
+    assert result["concat1"]["output"] == result["concat2"]["output"] == ["foo", "bar", "extra_item"]
