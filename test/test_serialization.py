@@ -1,8 +1,9 @@
+import sys
 from unittest.mock import Mock
 
 import pytest
 
-from canals import Pipeline
+from canals import Pipeline, component
 from canals.errors import DeserializationError
 from canals.testing import factory
 from canals.serialization import default_to_dict, default_from_dict
@@ -77,5 +78,14 @@ def test_from_dict_import_type():
         "connections": [],
     }
 
+    # remove the target component from the registry if already there
+    component.registry.pop("sample_components.greet.Greet", None)
+    # remove the module from sys.modules if already there
+    sys.modules.pop("sample_components.greet", None)
+
     p = Pipeline.from_dict(pipeline_dict)
-    print(p)
+
+    from sample_components.greet import Greet
+
+    assert type(p.get_component("greeter")) == Greet
+    assert type(p.get_component("greeter")) == Greet
