@@ -88,4 +88,3 @@ def test_from_dict_import_type():
     from sample_components.greet import Greet
 
     assert type(p.get_component("greeter")) == Greet
-    assert type(p.get_component("greeter")) == Greet
