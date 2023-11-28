@@ -1,3 +1,5 @@
+> ⚠️ The project was merged into Haystack, namely into the [`core`](https://github.com/deepset-ai/haystack/tree/main/haystack/core) package.
+
 # Canals
 
 <p align="center" float="left">
